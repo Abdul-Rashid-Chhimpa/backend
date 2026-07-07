@@ -17,9 +17,7 @@ if (!fs.existsSync("uploads")) {
 // Middleware
 app.use(
   cors({
-    origin:{
-      "https://frontend-wlwb.vercel.app"
-    },
+    origin:"https://frontend-wlwb.vercel.app",
     credentials: true,
   })
 );
