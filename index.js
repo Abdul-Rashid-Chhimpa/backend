@@ -17,7 +17,10 @@ if (!fs.existsSync("uploads")) {
 // Middleware
 app.use(
   cors({
-    origin:"http://localhost:5173",
+    origin:[
+      "http://localhost:5173",
+      "https://frontend-t4yb.vercel.app"
+    ],
     credentials: true,
   })
 );
