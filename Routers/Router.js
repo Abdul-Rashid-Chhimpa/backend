@@ -16,7 +16,7 @@ router.post(
       const imageUrls =
         req.files?.map(
           (file) =>
-            `http://localhost:8080/uploads/${file.filename}`
+            `https://backend-3-axez.onrender.com/uploads/${file.filename}`
         ) || [];
 
       // Pricing JSON Parse
