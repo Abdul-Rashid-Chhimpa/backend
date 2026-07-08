@@ -20,7 +20,7 @@ if (!token) {
 const decoded =
 jwt.verify(
 token,
-process.env.JWT_SECRET
+process.env.jwt_secret
 );
 
 req.user = decoded;
