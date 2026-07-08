@@ -128,7 +128,7 @@ router.put(
       if (req.files && req.files.length > 0) {
         updateData.images = req.files.map(
           (file) =>
-            `http://localhost:8080/uploads/${file.filename}`
+            `https://backend-3-axez.onrender.com/uploads/${file.filename}`
         );
       }
 
