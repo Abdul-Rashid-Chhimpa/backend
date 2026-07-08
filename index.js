@@ -17,7 +17,8 @@ if (!fs.existsSync("uploads")) {
 // Middleware
 app.use(
   cors({
-    origin:"https://frontend-vp6t.vercel.app",
+    // origin:"https://frontend-vp6t.vercel.app",
+    origin:"https://pedwaltools.netlify.app",
     credentials: true,
   })
 );
