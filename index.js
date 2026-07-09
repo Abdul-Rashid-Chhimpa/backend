@@ -17,7 +17,7 @@ if (!fs.existsSync("uploads")) {
 // Middleware
 app.use(
   cors({
-    origin:"https://frontend-ten-steel-18.vercel.app" || "https://www.pedwal.in",
+    origin:"https://frontend-ten-steel-18.vercel.app",
     // origin:"https://frontend-vp6t.vercel.app",
     // origin:"https://pedwaltools.netlify.app",
     credentials: true,
