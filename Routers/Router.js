@@ -140,34 +140,32 @@ router.put(
       }
 
       // Existing Images
-      let images = [...product.images];
-
-      // New Uploaded Images
-     let images = [...product.images];
+   // Existing Images
+let images = [...product.images];
 
 const replaceIndexes = Array.isArray(req.body.replaceIndexes)
   ? req.body.replaceIndexes
-  : [req.body.replaceIndexes];
+  : req.body.replaceIndexes
+  ? [req.body.replaceIndexes]
+  : [];
 
 if (req.files && req.files.length > 0) {
-
   req.files.forEach((file, i) => {
-
     const replaceIndex = Number(replaceIndexes[i]);
 
-    if (!isNaN(replaceIndex) && images[replaceIndex]) {
+    if (
+      !isNaN(replaceIndex) &&
+      replaceIndex >= 0 &&
+      replaceIndex < images.length
+    ) {
       images[replaceIndex] = file.path;
     } else {
       images.push(file.path);
     }
-
   });
-
 }
 
 updateData.images = images;
-
-      updateData.images = images;
 
       const updatedProduct =
         await Product.findByIdAndUpdate(
