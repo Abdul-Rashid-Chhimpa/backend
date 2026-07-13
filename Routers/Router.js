@@ -157,16 +157,18 @@ if (req.files && req.files.length > 0) {
     if (
       !isNaN(index) &&
       index >= 0 &&
-      index < updateData.images.length
+      index < images.length
     ) {
-      updateData.images[index] = file.path;
+      images[index] = file.path;
     } else {
-      updateData.images.push(file.path);
+      images.push(file.path);
     }
 
   });
 
 }
+
+updateData.images = images;
 
       const updatedProduct =
         await Product.findByIdAndUpdate(
