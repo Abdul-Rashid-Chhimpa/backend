@@ -125,7 +125,7 @@ router.put(
           message: "Product Not Found",
         });
       }
-
+let images = [...product.images];
       const updateData = {
         name: req.body.name,
         brand: req.body.brand,
