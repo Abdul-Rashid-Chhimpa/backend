@@ -143,21 +143,29 @@ router.put(
       let images = [...product.images];
 
       // New Uploaded Images
-      if (req.files && req.files.length > 0) {
+     let images = [...product.images];
 
-        req.files.forEach((file, index) => {
+const replaceIndexes = Array.isArray(req.body.replaceIndexes)
+  ? req.body.replaceIndexes
+  : [req.body.replaceIndexes];
 
-          if (images[index]) {
-            // Replace Existing Image
-            images[index] = file.path;
-          } else {
-            // Add New Image
-            images.push(file.path);
-          }
+if (req.files && req.files.length > 0) {
 
-        });
+  req.files.forEach((file, i) => {
 
-      }
+    const replaceIndex = Number(replaceIndexes[i]);
+
+    if (!isNaN(replaceIndex) && images[replaceIndex]) {
+      images[replaceIndex] = file.path;
+    } else {
+      images.push(file.path);
+    }
+
+  });
+
+}
+
+updateData.images = images;
 
       updateData.images = images;
 
