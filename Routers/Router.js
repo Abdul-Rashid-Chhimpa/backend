@@ -115,8 +115,16 @@ router.put(
   "/:id",
   upload.array("images", 10),
   async (req, res) => {
-
     try {
+
+      const product = await Product.findById(req.params.id);
+
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: "Product Not Found",
+        });
+      }
 
       const updateData = {
         name: req.body.name,
@@ -131,13 +139,29 @@ router.put(
         updateData.pricing = JSON.parse(req.body.pricing);
       }
 
+      // Existing Images
+      let images = [...product.images];
+
+      // New Uploaded Images
       if (req.files && req.files.length > 0) {
-        updateData.images = req.files.map(
-          (file) => file.path
-        );
+
+        req.files.forEach((file, index) => {
+
+          if (images[index]) {
+            // Replace Existing Image
+            images[index] = file.path;
+          } else {
+            // Add New Image
+            images.push(file.path);
+          }
+
+        });
+
       }
 
-      const product =
+      updateData.images = images;
+
+      const updatedProduct =
         await Product.findByIdAndUpdate(
           req.params.id,
           updateData,
@@ -147,17 +171,10 @@ router.put(
           }
         );
 
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: "Product Not Found",
-        });
-      }
-
       res.status(200).json({
         success: true,
         message: "Product Updated Successfully",
-        product,
+        product: updatedProduct,
       });
 
     } catch (error) {
@@ -170,10 +187,8 @@ router.put(
       });
 
     }
-
   }
 );
-
 // ======================
 // DELETE PRODUCT
 // ======================
