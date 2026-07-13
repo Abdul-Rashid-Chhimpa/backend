@@ -138,34 +138,35 @@ router.put(
       if (req.body.pricing) {
         updateData.pricing = JSON.parse(req.body.pricing);
       }
-
+if (req.body.images) {
+  updateData.images = JSON.parse(req.body.images);
+} else {
+  updateData.images = [...product.images];
+}
       // Existing Images
-   // Existing Images
-let images = [...product.images];
-
-const replaceIndexes = Array.isArray(req.body.replaceIndexes)
-  ? req.body.replaceIndexes
-  : req.body.replaceIndexes
-  ? [req.body.replaceIndexes]
-  : [];
-
 if (req.files && req.files.length > 0) {
+
+  const replaceIndexes = Array.isArray(req.body.replaceIndexes)
+    ? req.body.replaceIndexes
+    : [req.body.replaceIndexes];
+
   req.files.forEach((file, i) => {
-    const replaceIndex = Number(replaceIndexes[i]);
+
+    const index = Number(replaceIndexes[i]);
 
     if (
-      !isNaN(replaceIndex) &&
-      replaceIndex >= 0 &&
-      replaceIndex < images.length
+      !isNaN(index) &&
+      index >= 0 &&
+      index < updateData.images.length
     ) {
-      images[replaceIndex] = file.path;
+      updateData.images[index] = file.path;
     } else {
-      images.push(file.path);
+      updateData.images.push(file.path);
     }
-  });
-}
 
-updateData.images = images;
+  });
+
+}
 
       const updatedProduct =
         await Product.findByIdAndUpdate(
