@@ -114,12 +114,19 @@ router.get("/:id", async (req, res) => {
 // ======================
 // UPDATE PRODUCT
 // ======================
+// ======================
+// UPDATE PRODUCT
+// ======================
+
 router.put(
   "/:id",
   upload.array("images", 10),
   async (req, res) => {
+
     try {
-      const product = await Product.findById(req.params.id);
+
+      const product =
+        await Product.findById(req.params.id);
 
       if (!product) {
         return res.status(404).json({
@@ -137,65 +144,122 @@ router.put(
         description: req.body.description,
       };
 
+      // ==========================
       // Pricing
+      // ==========================
+
       if (req.body.pricing) {
-        updateData.pricing = JSON.parse(req.body.pricing);
+        updateData.pricing = JSON.parse(
+          req.body.pricing
+        );
       }
 
+      // ==========================
       // Existing Images
-      let images = req.body.images
-        ? JSON.parse(req.body.images)
+      // ==========================
+
+      let images = req.body.existingImages
+        ? JSON.parse(req.body.existingImages)
         : [...product.images];
 
-      // Replace / Add Images
-      if (req.files && req.files.length > 0) {
-        const replaceIndexes = Array.isArray(req.body.replaceIndexes)
+      // ==========================
+      // Replace Indexes
+      // ==========================
+
+      let replaceIndexes = [];
+
+      if (req.body.replaceIndexes) {
+
+        replaceIndexes = Array.isArray(
+          req.body.replaceIndexes
+        )
           ? req.body.replaceIndexes
-          : req.body.replaceIndexes
-          ? [req.body.replaceIndexes]
-          : [];
+          : [req.body.replaceIndexes];
+
+      }
+
+      // ==========================
+      // Uploaded Images
+      // ==========================
+
+      if (
+        req.files &&
+        req.files.length > 0
+      ) {
 
         req.files.forEach((file, i) => {
-          const replaceIndex = Number(replaceIndexes[i]);
+
+          const replaceIndex = Number(
+            replaceIndexes[i]
+          );
 
           if (
-            !isNaN(replaceIndex) &&
             replaceIndex >= 0 &&
             replaceIndex < images.length
           ) {
-            // Replace old image
-            images[replaceIndex] = file.path;
+
+            // Replace Existing Image
+
+            images[replaceIndex] =
+              file.path;
+
           } else {
-            // Add new image
+
+            // Add New Image
+
             images.push(file.path);
+
           }
+
         });
+
       }
 
       updateData.images = images;
 
-      const updatedProduct = await Product.findByIdAndUpdate(
-        req.params.id,
-        updateData,
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+      // ==========================
+      // Update Product
+      // ==========================
+
+      const updatedProduct =
+        await Product.findByIdAndUpdate(
+
+          req.params.id,
+
+          updateData,
+
+          {
+            returnDocument: "after",
+            runValidators: true,
+          }
+
+        );
 
       res.status(200).json({
+
         success: true,
-        message: "Product Updated Successfully",
+
+        message:
+          "Product Updated Successfully",
+
         product: updatedProduct,
+
       });
+
     } catch (error) {
+
       console.log(error);
 
       res.status(500).json({
+
         success: false,
+
         message: error.message,
+
       });
+
     }
+
   }
 );
 // ======================
