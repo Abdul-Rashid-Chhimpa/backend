@@ -161,6 +161,17 @@ router.put(
       let images = req.body.existingImages
         ? JSON.parse(req.body.existingImages)
         : [...product.images];
+      images = images.map((img, index) => {
+
+  if (img === "__REPLACED__") {
+
+    return product.images[index];
+
+  }
+
+  return img;
+
+});
 
       // ==========================
       // Replace Indexes
