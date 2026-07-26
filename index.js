@@ -39,12 +39,10 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // Routes
 const authRoutes = require("./Routers/authRoutes");
 const productRoutes = require("./Routers/Router");
-const {forgotPassword, resetPassword } = require("../controllers/authController"); // path apne hisaab se
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
-router.post("/forgot-password", forgotPassword);
-router.post("/reset-password/:token", resetPassword);
+
 
 app.use("/api/orders", orderRoutes);
 
