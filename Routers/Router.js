@@ -406,7 +406,7 @@ router.post("/forgot-password", async (req, res) => {
     await user.save({ validateBeforeSave: false });
 
     // Create reset URL (change frontend URL according to your domain)
-    const resetUrl = `https://your-frontend-domain.com/reset-password/${resetToken}`;
+    const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
 
     // Send email (configure your transporter)
     const transporter = nodemailer.createTransport({
