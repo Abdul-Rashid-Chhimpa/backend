@@ -6,7 +6,7 @@ const {
   login,
   forgotPassword,
   resetPassword,
-} = require("../controllers/authController"); // path check kar lena
+} = require("../Controllers/authController"); // path check kar lena
 
 router.post("/register", register);
 router.post("/login", login);
