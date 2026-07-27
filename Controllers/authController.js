@@ -134,57 +134,55 @@ exports.forgotPassword = async (req, res) => {
       .update(resetToken)
       .digest("hex");
 
-    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 min
 
     await user.save({ validateBeforeSave: false });
 
-    // Frontend URL (production)
-    const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
+    const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`; // ← apna frontend URL daalo
 
-    // ============ FAST EMAIL SETUP ============
+    // ============ EMAIL SENDING ============
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
-      // Important for speed + avoid hanging
-      connectionTimeout: 10000,   // 10 seconds
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
     });
 
-    // Email send (without verify - verify slow karta hai)
-    await transporter.sendMail({
+    // Verify connection (important for debugging)
+    await transporter.verify();
+    console.log("Email server is ready to send messages");
+
+    const info = await transporter.sendMail({
       from: `"Pedwal Support" <${process.env.EMAIL_USER}>`,
       to: user.email,
-      subject: "Password Reset - Pedwal",
+      subject: "Password Reset Request - Pedwal",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
           <h2 style="color: #4f46e5;">Reset Your Password</h2>
           <p>Hello ${user.name},</p>
-          <p>Click the button below to reset your password. Link valid for 15 minutes.</p>
-          
+          <p>Click the button below to reset your password (valid for 15 minutes):</p>
           <a href="${resetUrl}" 
-             style="display: inline-block; padding: 12px 28px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;">
+             style="display:inline-block; padding:12px 28px; background:#4f46e5; color:white; text-decoration:none; border-radius:8px; font-weight:bold; margin:20px 0;">
             Reset Password
           </a>
-
-          <p style="color: #666; font-size: 14px;">If you did not request this, please ignore this email.</p>
+          <p style="color:#666; font-size:14px;">If you did not request this, please ignore this email.</p>
         </div>
       `,
     });
+
+    console.log("Email sent successfully:", info.messageId);
 
     res.status(200).json({
       success: true,
       message: "Password reset link has been sent to your email",
     });
   } catch (error) {
-    console.log("Forgot Password Error →", error.message);
-    
+    console.log("=========== FORGOT PASSWORD ERROR ===========");
+    console.log(error); // ← yeh line important hai
     res.status(500).json({
       success: false,
-      message: "Failed to send reset link. Please try again.",
+      message: "Failed to send reset link. Please try again later.",
     });
   }
 };
