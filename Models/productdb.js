@@ -73,7 +73,13 @@ const productSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
+  // Product Model mein yeh field add karo
+variantGroup: {
+  type: String,
+  trim: true,
+  default: null, // null = koi variety nahi
+},
 );
 
 module.exports = mongoose.model("Product", productSchema);
