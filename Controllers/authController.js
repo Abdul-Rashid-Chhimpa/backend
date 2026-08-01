@@ -140,15 +140,21 @@ exports.forgotPassword = async (req, res) => {
     const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
 
     // Email Transporter
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      connectionTimeout: 10000,
-      socketTimeout: 15000,
-    });
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false,
+  },
+  connectionTimeout: 10000,
+  socketTimeout: 15000,
+  family: 4, // IPv4 force
+});
 
     await transporter.sendMail({
       from: `"Pedwal Support" <${process.env.EMAIL_USER}>`,
