@@ -143,7 +143,7 @@ exports.forgotPassword = async (req, res) => {
 
     // ========== Send Email with Resend ==========
     await resend.emails.send({
-      from: "Pedwal <onboarding@resend.dev>",
+      from: "Pedwal <noreply@pedwal.in>",
       to: user.email,
       subject: "Password Reset - Pedwal",
       html: `
