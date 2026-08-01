@@ -3,7 +3,6 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
-
 // ====================== REGISTER ======================
 exports.register = async (req, res) => {
   try {
@@ -133,13 +132,14 @@ exports.forgotPassword = async (req, res) => {
       .createHash("sha256")
       .update(resetToken)
       .digest("hex");
-    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 min
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
 
     await user.save({ validateBeforeSave: false });
 
+    // Frontend URL
     const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
 
-    // ========== EMAIL ==========
+    // Email Transporter
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -147,7 +147,6 @@ exports.forgotPassword = async (req, res) => {
         pass: process.env.EMAIL_PASS,
       },
       connectionTimeout: 10000,
-      greetingTimeout: 10000,
       socketTimeout: 15000,
     });
 
@@ -159,7 +158,7 @@ exports.forgotPassword = async (req, res) => {
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
           <h2 style="color: #4f46e5;">Reset Your Password</h2>
           <p>Hello ${user.name},</p>
-          <p>Click the button below to reset your password (valid for 15 minutes):</p>
+          <p>Click the button below to reset your password. This link is valid for 15 minutes.</p>
           <a href="${resetUrl}" 
              style="display:inline-block; padding:12px 28px; background:#4f46e5; color:white; text-decoration:none; border-radius:8px; font-weight:bold; margin:20px 0;">
             Reset Password
@@ -174,16 +173,14 @@ exports.forgotPassword = async (req, res) => {
       message: "Password reset link has been sent to your email",
     });
   } catch (error) {
-    console.log("=========== FORGOT PASSWORD ERROR ===========");
-    console.log(error.message);
-    console.log(error);
-
+    console.log("Forgot Password Error →", error.message);
     res.status(500).json({
       success: false,
       message: "Failed to send reset link. Please try again later.",
     });
   }
 };
+
 // ====================== RESET PASSWORD ======================
 exports.resetPassword = async (req, res) => {
   try {
@@ -197,7 +194,6 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Hash the token coming from URL
     const hashedToken = crypto
       .createHash("sha256")
       .update(token)
@@ -215,7 +211,6 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Update password
     user.password = await bcrypt.hash(password, 10);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
@@ -227,10 +222,10 @@ exports.resetPassword = async (req, res) => {
       message: "Password reset successful! You can now login.",
     });
   } catch (error) {
-    console.log("Reset Password Error →", error);
+    console.log("Reset Password Error →", error.message);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Something went wrong",
     });
   }
 };
