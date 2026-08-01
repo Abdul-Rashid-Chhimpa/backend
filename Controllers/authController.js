@@ -194,6 +194,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 // ====================== RESET PASSWORD ======================
+// ====================== RESET PASSWORD ======================
 exports.resetPassword = async (req, res) => {
   try {
     const { token } = req.params;
@@ -206,11 +207,13 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
+    // 1. Hash the incoming URL token to match with Database token
     const hashedToken = crypto
       .createHash("sha256")
       .update(token)
       .digest("hex");
 
+    // 2. Find user with valid token & check if token is NOT expired
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
       resetPasswordExpire: { $gt: Date.now() },
@@ -219,25 +222,30 @@ exports.resetPassword = async (req, res) => {
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: "Invalid or expired reset token",
+        message: "Invalid or expired reset token. Please request a new link.",
       });
     }
 
+    // 3. Set new hashed password
     user.password = await bcrypt.hash(password, 10);
+    
+    // 4. Clear reset token fields
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
 
-    await user.save();
+    // 5. Save without triggering full Mongoose schema validations
+    await user.save({ validateBeforeSave: false });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Password reset successful! You can now login.",
     });
+
   } catch (error) {
-    console.log("Reset Password Error →", error.message);
-    res.status(500).json({
+    console.error("Reset Password Error Details →", error);
+    return res.status(500).json({
       success: false,
-      message: "Something went wrong",
+      message: error.message || "Something went wrong",
     });
   }
 };
