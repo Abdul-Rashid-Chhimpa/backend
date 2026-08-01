@@ -1,27 +1,34 @@
 const jwt = require("jsonwebtoken");
-const User = require("../Models/User"); // Check karein ki Models folder ka 'M' capital hai ya small
+const User = require("../Models/User");
 
 const protect = async (req, res, next) => {
   let token;
 
-  // Check karein ki Header me Bearer token aa rha h ya nahi
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
   ) {
     try {
-      // "Bearer <token>" se actual token extract karo
+      // Extract Token
       token = req.headers.authorization.split(" ")[1];
 
-      // Secret Key handle karein (.env se JWT_SECRET ya jwt_secret)
+      // Handle Secret Key dynamically (CAPS and Small case both)
       const secret = process.env.JWT_SECRET || process.env.jwt_secret;
-      
 
-      // Token decode & verify karo
+      if (!secret) {
+        console.error("JWT Secret Key missing in environment variables!");
+        return res.status(500).json({
+          success: false,
+          message: "Server Configuration Error: Secret key missing",
+        });
+      }
+
+      // Decode Token
       const decoded = jwt.verify(token, secret);
 
-      // Decoded ID se Database se user fetch karo (Password Excluded)
-      req.user = await User.findById(decoded.id || decoded._id).select("-password");
+      // Fetch User (handling both decoded.id and decoded._id)
+      const userId = decoded.id || decoded._id;
+      req.user = await User.findById(userId).select("-password");
 
       if (!req.user) {
         return res.status(401).json({
@@ -30,7 +37,7 @@ const protect = async (req, res, next) => {
         });
       }
 
-      return next(); // Next controller (e.g., updateProfile) par aage badho
+      return next();
     } catch (error) {
       console.error("Auth Middleware Error:", error.message);
       return res.status(401).json({
