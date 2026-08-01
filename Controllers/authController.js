@@ -2,7 +2,9 @@ const User = require("../Models/userModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
+// const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
+const resend = new Resend(process.env.Key);
 // ====================== REGISTER ======================
 exports.register = async (req, res) => {
   try {
@@ -132,44 +134,30 @@ exports.forgotPassword = async (req, res) => {
       .createHash("sha256")
       .update(resetToken)
       .digest("hex");
+
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
 
     await user.save({ validateBeforeSave: false });
 
-    // Frontend URL
     const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
 
-    // Email Transporter
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-  connectionTimeout: 10000,
-  socketTimeout: 15000,
-  family: 4, // IPv4 force
-});
-
-    await transporter.sendMail({
-      from: `"Pedwal Support" <${process.env.EMAIL_USER}>`,
+    // ========== Send Email with Resend ==========
+    await resend.emails.send({
+      from: "Pedwal <onboarding@resend.dev>",
       to: user.email,
       subject: "Password Reset - Pedwal",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
           <h2 style="color: #4f46e5;">Reset Your Password</h2>
           <p>Hello ${user.name},</p>
-          <p>Click the button below to reset your password. This link is valid for 15 minutes.</p>
+          <p>Click the button below to reset your password. This link is valid for <b>15 minutes</b>.</p>
+          
           <a href="${resetUrl}" 
-             style="display:inline-block; padding:12px 28px; background:#4f46e5; color:white; text-decoration:none; border-radius:8px; font-weight:bold; margin:20px 0;">
+             style="display: inline-block; padding: 12px 28px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;">
             Reset Password
           </a>
-          <p style="color:#666; font-size:14px;">If you did not request this, please ignore this email.</p>
+
+          <p style="color: #666; font-size: 14px;">If you did not request this, please ignore this email.</p>
         </div>
       `,
     });
