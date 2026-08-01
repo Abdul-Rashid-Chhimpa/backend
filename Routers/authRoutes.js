@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
 
-// 1. Correct middleware import (CommonJS default import)
-// Note: Folder name check kar lein ("Middelware" vs "middleware")
-const auth = require("../Middelware/authMiddleware"); 
+// 1. Correct middleware destructuring import
+// Check karein ki folder ka naam "Middelware" h ya "middleware"
+const { protect } = require("../Middelware/authMiddleware"); 
 
-// 2. Import all controllers together in a single destructuring block
+// 2. Controllers Import
 const {
   register,
   login,
@@ -20,7 +20,7 @@ router.post("/login", login);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);
 
-// Profile Update Route (Protected)
-router.put("/profile", auth, updateProfile);
+// Profile Update Route (Protected with 'protect' function)
+router.put("/profile", protect, updateProfile);
 
 module.exports = router;
