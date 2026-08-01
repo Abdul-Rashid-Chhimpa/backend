@@ -48,7 +48,6 @@ const productSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
-    // Quantity Wise Pricing
     pricing: {
       type: [pricingSchema],
       required: true,
@@ -57,17 +56,14 @@ const productSchema = new mongoose.Schema(
         message: "At least one pricing option is required.",
       },
     },
-    // Product Images
     images: {
       type: [String],
       default: [],
     },
-
-    // ========== Variety Group ==========
     variantGroup: {
       type: String,
       trim: true,
-      default: null, // null = koi variety nahi
+      default: null,
     },
   },
   {
