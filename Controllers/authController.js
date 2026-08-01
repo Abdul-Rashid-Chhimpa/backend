@@ -133,30 +133,28 @@ exports.forgotPassword = async (req, res) => {
       .createHash("sha256")
       .update(resetToken)
       .digest("hex");
-
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 min
 
     await user.save({ validateBeforeSave: false });
 
-    const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`; // ← apna frontend URL daalo
+    const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
 
-    // ============ EMAIL SENDING ============
+    // ========== EMAIL ==========
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
 
-    // Verify connection (important for debugging)
-    await transporter.verify();
-    console.log("Email server is ready to send messages");
-
-    const info = await transporter.sendMail({
+    await transporter.sendMail({
       from: `"Pedwal Support" <${process.env.EMAIL_USER}>`,
       to: user.email,
-      subject: "Password Reset Request - Pedwal",
+      subject: "Password Reset - Pedwal",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
           <h2 style="color: #4f46e5;">Reset Your Password</h2>
@@ -171,15 +169,15 @@ exports.forgotPassword = async (req, res) => {
       `,
     });
 
-    console.log("Email sent successfully:", info.messageId);
-
     res.status(200).json({
       success: true,
       message: "Password reset link has been sent to your email",
     });
   } catch (error) {
     console.log("=========== FORGOT PASSWORD ERROR ===========");
-    console.log(error); // ← yeh line important hai
+    console.log(error.message);
+    console.log(error);
+
     res.status(500).json({
       success: false,
       message: "Failed to send reset link. Please try again later.",
