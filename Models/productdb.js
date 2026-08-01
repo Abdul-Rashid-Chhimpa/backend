@@ -7,7 +7,6 @@ const pricingSchema = new mongoose.Schema(
       required: true,
       min: 1,
     },
-
     price: {
       type: Number,
       required: true,
@@ -24,37 +23,31 @@ const productSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-
     brand: {
       type: String,
       default: "",
       trim: true,
     },
-
     category: {
       type: String,
       required: true,
       trim: true,
     },
-
     material: {
       type: String,
       default: "",
       trim: true,
     },
-
     stock: {
       type: Number,
       default: 0,
       min: 0,
     },
-
     description: {
       type: String,
       default: "",
       trim: true,
     },
-
     // Quantity Wise Pricing
     pricing: {
       type: [pricingSchema],
@@ -64,22 +57,22 @@ const productSchema = new mongoose.Schema(
         message: "At least one pricing option is required.",
       },
     },
-
     // Product Images
     images: {
       type: [String],
       default: [],
     },
+
+    // ========== Variety Group ==========
+    variantGroup: {
+      type: String,
+      trim: true,
+      default: null, // null = koi variety nahi
+    },
   },
   {
     timestamps: true,
-  },
-  // Product Model mein yeh field add karo
-variantGroup: {
-  type: String,
-  trim: true,
-  default: null, // null = koi variety nahi
-},
+  }
 );
 
 module.exports = mongoose.model("Product", productSchema);
