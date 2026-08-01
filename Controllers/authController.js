@@ -107,10 +107,12 @@ exports.login = async (req, res) => {
 };
 
 // ====================== FORGOT PASSWORD ======================
+// ====================== FORGOT PASSWORD ======================
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
+    // 1. Check if email field is empty
     if (!email) {
       return res.status(400).json({
         success: false,
@@ -118,16 +120,18 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
+    // 2. Database mein User check karein
     const user = await User.findOne({ email: email.toLowerCase().trim() });
 
+    // 🚨 FIX: Agar user nahi mila to yahan se hi error return kar do
     if (!user) {
-      return res.status(200).json({
-        success: true,
-        message: "If an account exists with this email, a reset link has been sent.",
+      return res.status(404).json({
+        success: false,
+        message: "No account found with this email address.",
       });
     }
 
-    // Generate token
+    // 3. Token Generate karein
     const resetToken = crypto.randomBytes(32).toString("hex");
 
     user.resetPasswordToken = crypto
@@ -135,21 +139,18 @@ exports.forgotPassword = async (req, res) => {
       .update(resetToken)
       .digest("hex");
 
-    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 Minutes valid
 
     await user.save({ validateBeforeSave: false });
 
     const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
 
-    // ========== Send Email with Resend ==========
-    // NOTE: Agar 'pedwal.in' Resend dashboard mein VERIFIED nahi hai,
-    // to testing ke liye: 'Pedwal <onboarding@resend.dev>' use karein.
-    // Jab domain verify ho jaye tab: 'Pedwal <noreply@pedwal.in>' karein.
-
+    // 4. Sender Email Setup
     const senderEmail = process.env.NODE_ENV === "production" 
       ? "Pedwal <noreply@pedwal.in>" 
-      : "Pedwal <onboarding@resend.dev>"; // Fallback testing email
+      : "Pedwal <onboarding@resend.dev>"; 
 
+    // 5. Send Email via Resend
     const { data, error } = await resend.emails.send({
       from: senderEmail,
       to: user.email,
@@ -170,7 +171,7 @@ exports.forgotPassword = async (req, res) => {
       `,
     });
 
-    // Check if Resend returned an error
+    // Handle Resend Errors
     if (error) {
       console.error("Resend API Error Detail →", error);
       return res.status(400).json({
@@ -181,13 +182,14 @@ exports.forgotPassword = async (req, res) => {
 
     console.log("Resend Success Data →", data);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Password reset link has been sent to your email",
     });
+
   } catch (error) {
     console.log("Forgot Password Catch Error →", error.message);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to send reset link. Please try again later.",
     });
