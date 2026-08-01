@@ -3,9 +3,9 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const fs = require("fs");
-const orderRoutes = require("./Routers/orderRoutes");
-dotenv.config();
 const path = require("path");
+
+dotenv.config();
 
 const app = express();
 
@@ -17,44 +17,29 @@ if (!fs.existsSync("uploads")) {
 // Middleware
 app.use(
   cors({
-    // origin:"https://frontend-ten-steel-18.vercel.app",
-        origin:"https://www.pedwal.in",
-    // origin:"https://frontend-vp6t.vercel.app",
-    // origin:"https://pedwaltools.netlify.app",
+    origin: "https://www.pedwal.in",
     credentials: true,
   })
 );
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// // Static Folder
-// app.use(
-//   "/uploads",
-//   express.static("uploads")
-// );
 
 // Routes
 const authRoutes = require("./Routers/authRoutes");
 const productRoutes = require("./Routers/Router");
+const orderRoutes = require("./Routers/orderRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
-
-
 app.use("/api/orders", orderRoutes);
 
 // MongoDB
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() =>
-    console.log("MongoDB Connected")
-  )
-  .catch((err) =>
-    console.log(err)
-  );
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => console.log(err));
 
 // Test Route
 app.get("/", (req, res) => {
@@ -64,10 +49,8 @@ app.get("/", (req, res) => {
   });
 });
 
+// Port
 const PORT = process.env.PORT || 8080;
-
 app.listen(PORT, () => {
-  console.log(
-    `Server Running On Port ${PORT}`
-  );
+  console.log(`Server Running On Port ${PORT}`);
 });
