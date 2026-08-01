@@ -1,48 +1,57 @@
-const User = require("../models/User"); // Path apne User model ke hisab se check karein
+const mongoose = require("mongoose");
 
-const updateProfile = async (req, res) => {
-  try {
-    // req.user me middleware se decoded id milegi (e.g., req.user.id ya req.user._id)
-    const userId = req.user.id || req.user._id;
-
-    const { name, mobile, address, city, state, pincode, country } = req.body;
-
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      {
-        $set: {
-          name,
-          mobile,
-          address,
-          city,
-          state,
-          pincode,
-          country,
-        },
-      },
-      { new: true, runValidators: true }
-    ).select("-password");
-
-    if (!updatedUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Profile updated successfully!",
-      user: updatedUser,
-    });
-  } catch (error) {
-    console.error("Update profile error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to update profile",
-      error: error.message,
-    });
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "Name is required"],
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+    },
+    // Profile & Address Details
+    mobile: {
+      type: String,
+      default: "",
+    },
+    address: {
+      type: String,
+      default: "",
+    },
+    city: {
+      type: String,
+      default: "",
+    },
+    state: {
+      type: String,
+      default: "",
+    },
+    pincode: {
+      type: String,
+      default: "",
+    },
+    country: {
+      type: String,
+      default: "India",
+    },
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
+    },
+  },
+  {
+    timestamps: true, // createdAt aur updatedAt dates automatically handle karega
   }
-};
+);
 
-module.exports = { updateProfile };
+module.exports = mongoose.model("User", userSchema);
