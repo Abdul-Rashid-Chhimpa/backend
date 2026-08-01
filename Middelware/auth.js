@@ -1,39 +1,44 @@
 const jwt = require("jsonwebtoken");
 
-const auth = (
-req,
-res,
-next
-) => {
+const auth = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
 
-try {
+    if (!authHeader) {
+      return res.status(401).json({
+        success: false,
+        message: "Login Required",
+      });
+    }
 
-const token =
-req.headers.authorization;
+    // "Bearer <token>" se extra space aur "Bearer" hatane ke liye:
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.split(" ")[1]
+      : authHeader;
 
-if (!token) {
-  return res.status(401).json({
-    message: "Login Required",
-  });
-}
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Token missing",
+      });
+    }
 
-const decoded =
-jwt.verify(
-token,
-process.env.jwt_secret
-);
+    // Secret Key check (.env me JWT_SECRET / jwt_secret dono handle karega)
+    const secret = process.env.JWT_SECRET || process.env.jwt_secret;
 
-req.user = decoded;
+    const decoded = jwt.verify(token, secret);
 
-next();
+    // Decoded payload (user id, email, etc.) ko req.user me set karein
+    req.user = decoded;
 
-} catch (error) {
-
-res.status(401).json({
-message: "Invalid Token",
-});
-
-}
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or Expired Token",
+      error: error.message,
+    });
+  }
 };
 
 module.exports = auth;
