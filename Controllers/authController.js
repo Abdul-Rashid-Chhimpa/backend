@@ -1,11 +1,11 @@
-const User = require("../Models/userModel");
+const User = require("../Models/User"); // Single correct import
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const User=require("../Models/User");
-// const nodemailer = require("nodemailer");
 const { Resend } = require("resend");
+
 const resend = new Resend(process.env.Key);
+
 // ====================== REGISTER ======================
 exports.register = async (req, res) => {
   try {
@@ -87,7 +87,7 @@ exports.login = async (req, res) => {
         id: user._id,
         role: user.role,
       },
-      process.env.jwt_secret,
+      process.env.jwt_secret || process.env.JWT_SECRET,
       {
         expiresIn: "7d",
       }
@@ -108,12 +108,10 @@ exports.login = async (req, res) => {
 };
 
 // ====================== FORGOT PASSWORD ======================
-// ====================== FORGOT PASSWORD ======================
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    // 1. Check if email field is empty
     if (!email) {
       return res.status(400).json({
         success: false,
@@ -121,10 +119,8 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    // 2. Database mein User check karein
     const user = await User.findOne({ email: email.toLowerCase().trim() });
 
-    // 🚨 FIX: Agar user nahi mila to yahan se hi error return kar do
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -132,7 +128,6 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    // 3. Token Generate karein
     const resetToken = crypto.randomBytes(32).toString("hex");
 
     user.resetPasswordToken = crypto
@@ -146,12 +141,11 @@ exports.forgotPassword = async (req, res) => {
 
     const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
 
-    // 4. Sender Email Setup
-    const senderEmail = process.env.NODE_ENV === "production" 
-      ? "Pedwal <noreply@pedwal.in>" 
-      : "Pedwal <onboarding@resend.dev>"; 
+    const senderEmail =
+      process.env.NODE_ENV === "production"
+        ? "Pedwal <noreply@pedwal.in>"
+        : "Pedwal <onboarding@resend.dev>";
 
-    // 5. Send Email via Resend
     const { data, error } = await resend.emails.send({
       from: senderEmail,
       to: user.email,
@@ -172,7 +166,6 @@ exports.forgotPassword = async (req, res) => {
       `,
     });
 
-    // Handle Resend Errors
     if (error) {
       console.error("Resend API Error Detail →", error);
       return res.status(400).json({
@@ -187,7 +180,6 @@ exports.forgotPassword = async (req, res) => {
       success: true,
       message: "Password reset link has been sent to your email",
     });
-
   } catch (error) {
     console.log("Forgot Password Catch Error →", error.message);
     return res.status(500).json({
@@ -196,7 +188,7 @@ exports.forgotPassword = async (req, res) => {
     });
   }
 };
-// ====================== RESET PASSWORD ======================
+
 // ====================== RESET PASSWORD ======================
 exports.resetPassword = async (req, res) => {
   try {
@@ -210,13 +202,11 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // 1. Hash the incoming URL token to match with Database token
     const hashedToken = crypto
       .createHash("sha256")
       .update(token)
       .digest("hex");
 
-    // 2. Find user with valid token & check if token is NOT expired
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
       resetPasswordExpire: { $gt: Date.now() },
@@ -229,21 +219,17 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // 3. Set new hashed password
     user.password = await bcrypt.hash(password, 10);
-    
-    // 4. Clear reset token fields
+
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
 
-    // 5. Save without triggering full Mongoose schema validations
     await user.save({ validateBeforeSave: false });
 
     return res.status(200).json({
       success: true,
       message: "Password reset successful! You can now login.",
     });
-
   } catch (error) {
     console.error("Reset Password Error Details →", error);
     return res.status(500).json({
@@ -253,13 +239,11 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// @desc    Update user profile
-// @route   PUT /api/auth/profile
-// @access  Private (Requires Token Authentication)
-export const updateProfile = async (req, res) => {
+// ====================== UPDATE PROFILE ======================
+exports.updateProfile = async (req, res) => {
   try {
-    // req.user.id authMiddleware se aayega
-    const user = await User.findById(req.user.id);
+    const userId = req.user.id || req.user._id;
+    const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({
@@ -268,7 +252,6 @@ export const updateProfile = async (req, res) => {
       });
     }
 
-    // Front-end se aaye hue data se fields update karo
     user.name = req.body.name || user.name;
     user.mobile = req.body.mobile || user.mobile;
     user.address = req.body.address || user.address;
@@ -279,7 +262,6 @@ export const updateProfile = async (req, res) => {
 
     const updatedUser = await user.save();
 
-    // Sensitive data (password) hata kar response bhejo
     res.status(200).json({
       success: true,
       message: "Profile updated successfully!",
