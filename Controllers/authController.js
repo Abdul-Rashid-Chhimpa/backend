@@ -2,6 +2,7 @@ const User = require("../Models/userModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const User=require("../Models/User");
 // const nodemailer = require("nodemailer");
 const { Resend } = require("resend");
 const resend = new Resend(process.env.Key);
