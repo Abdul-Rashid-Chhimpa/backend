@@ -251,3 +251,56 @@ exports.resetPassword = async (req, res) => {
     });
   }
 };
+
+// @desc    Update user profile
+// @route   PUT /api/auth/profile
+// @access  Private (Requires Token Authentication)
+export const updateProfile = async (req, res) => {
+  try {
+    // req.user.id authMiddleware se aayega
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Front-end se aaye hue data se fields update karo
+    user.name = req.body.name || user.name;
+    user.mobile = req.body.mobile || user.mobile;
+    user.address = req.body.address || user.address;
+    user.city = req.body.city || user.city;
+    user.state = req.body.state || user.state;
+    user.pincode = req.body.pincode || user.pincode;
+    user.country = req.body.country || user.country;
+
+    const updatedUser = await user.save();
+
+    // Sensitive data (password) hata kar response bhejo
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully!",
+      user: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        mobile: updatedUser.mobile,
+        address: updatedUser.address,
+        city: updatedUser.city,
+        state: updatedUser.state,
+        pincode: updatedUser.pincode,
+        country: updatedUser.country,
+        role: updatedUser.role,
+      },
+    });
+  } catch (error) {
+    console.error("Update Profile Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while updating profile",
+      error: error.message,
+    });
+  }
+};
