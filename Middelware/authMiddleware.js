@@ -15,6 +15,7 @@ const protect = async (req, res, next) => {
 
       // Secret Key handle karein (.env se JWT_SECRET ya jwt_secret)
       const secret = process.env.JWT_SECRET || process.env.jwt_secret;
+      
 
       // Token decode & verify karo
       const decoded = jwt.verify(token, secret);
