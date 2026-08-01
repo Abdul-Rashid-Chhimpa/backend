@@ -7,7 +7,6 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-
     mobile: {
       type: String,
       required: true,
@@ -15,7 +14,6 @@ const userSchema = new mongoose.Schema(
       minlength: 10,
       maxlength: 10,
     },
-
     email: {
       type: String,
       required: true,
@@ -23,18 +21,20 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-
     password: {
       type: String,
       required: true,
       minlength: 6,
     },
-
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user",
     },
+
+    // ========== Forgot Password Fields ==========
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
   },
   {
     timestamps: true,
