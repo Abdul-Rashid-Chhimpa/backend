@@ -142,8 +142,16 @@ exports.forgotPassword = async (req, res) => {
     const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
 
     // ========== Send Email with Resend ==========
-    await resend.emails.send({
-      from: "Pedwal <noreply@pedwal.in>",
+    // NOTE: Agar 'pedwal.in' Resend dashboard mein VERIFIED nahi hai,
+    // to testing ke liye: 'Pedwal <onboarding@resend.dev>' use karein.
+    // Jab domain verify ho jaye tab: 'Pedwal <noreply@pedwal.in>' karein.
+
+    const senderEmail = process.env.NODE_ENV === "production" 
+      ? "Pedwal <noreply@pedwal.in>" 
+      : "Pedwal <onboarding@resend.dev>"; // Fallback testing email
+
+    const { data, error } = await resend.emails.send({
+      from: senderEmail,
       to: user.email,
       subject: "Password Reset - Pedwal",
       html: `
@@ -162,19 +170,29 @@ exports.forgotPassword = async (req, res) => {
       `,
     });
 
+    // Check if Resend returned an error
+    if (error) {
+      console.error("Resend API Error Detail →", error);
+      return res.status(400).json({
+        success: false,
+        message: `Email sending failed: ${error.message}`,
+      });
+    }
+
+    console.log("Resend Success Data →", data);
+
     res.status(200).json({
       success: true,
       message: "Password reset link has been sent to your email",
     });
   } catch (error) {
-    console.log("Forgot Password Error →", error.message);
+    console.log("Forgot Password Catch Error →", error.message);
     res.status(500).json({
       success: false,
       message: "Failed to send reset link. Please try again later.",
     });
   }
 };
-
 // ====================== RESET PASSWORD ======================
 exports.resetPassword = async (req, res) => {
   try {
