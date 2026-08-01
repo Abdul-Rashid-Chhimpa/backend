@@ -5,7 +5,6 @@ const upload = require("../Middelware/upload"); // path check karo
 
 // ======================================
 // ADD PRODUCT
-
 // ======================================
 router.post(
   "/add-product",
@@ -19,6 +18,11 @@ router.post(
 
       const imageUrls = req.files ? req.files.map((file) => file.path) : [];
 
+      // Space trim karke save kar rahe hain
+      const variantGroupValue = req.body.variantGroup && req.body.variantGroup.trim() !== ""
+        ? req.body.variantGroup.trim()
+        : null;
+
       const product = await Product.create({
         name: req.body.name,
         brand: req.body.brand,
@@ -28,7 +32,7 @@ router.post(
         description: req.body.description,
         pricing,
         images: imageUrls,
-        variantGroup: req.body.variantGroup || null, // varieties ke liye
+        variantGroup: variantGroupValue,
       });
 
       return res.status(201).json({
@@ -112,7 +116,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // ======================================
-// UPDATE PRODUCT
+// UPDATE PRODUCT (FIXED BUG HERE)
 // ======================================
 router.put(
   "/:id",
@@ -127,6 +131,15 @@ router.put(
         });
       }
 
+      // 🔥 FIX: Check agar variantGroup empty string ("") aayi hai to database me null save ho
+      let updatedVariantGroup = product.variantGroup;
+      if (req.body.variantGroup !== undefined) {
+        updatedVariantGroup =
+          req.body.variantGroup.trim() !== ""
+            ? req.body.variantGroup.trim()
+            : null;
+      }
+
       const updateData = {
         name: req.body.name,
         brand: req.body.brand,
@@ -134,7 +147,7 @@ router.put(
         material: req.body.material,
         stock: Number(req.body.stock),
         description: req.body.description,
-        variantGroup: req.body.variantGroup || product.variantGroup || null,
+        variantGroup: updatedVariantGroup, // Corrected logic
       };
 
       if (req.body.pricing) {
@@ -144,6 +157,9 @@ router.put(
       let images = [];
       if (req.body.images) {
         images = JSON.parse(req.body.images);
+      } else if (req.body.existingImages) {
+        // Safe check if existingImages passed from frontend
+        images = JSON.parse(req.body.existingImages);
       } else {
         images = [...product.images];
       }
@@ -158,7 +174,11 @@ router.put(
       if (req.files && req.files.length > 0) {
         req.files.forEach((file, i) => {
           const replaceIndex = Number(replaceIndexes[i]);
-          if (!isNaN(replaceIndex) && replaceIndex >= 0 && replaceIndex < images.length) {
+          if (
+            !isNaN(replaceIndex) &&
+            replaceIndex >= 0 &&
+            replaceIndex < images.length
+          ) {
             images[replaceIndex] = file.path;
           } else {
             images.push(file.path);
