@@ -6,6 +6,7 @@ const { Resend } = require("resend");
 
 const resend = new Resend(process.env.Key);
 
+
 // ====================== REGISTER ======================
 exports.register = async (req, res) => {
   try {
