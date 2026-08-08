@@ -51,9 +51,12 @@ const createCategory = async (req, res) => {
       });
     }
 
+    const trimmedName = name.trim();
+
     const exists = await Category.findOne({
-      name: { $regex: new RegExp(`^${name.trim()}$`, "i") },
+      name: { $regex: new RegExp(`^${trimmedName}$`, "i") },
     });
+
     if (exists) {
       return res.status(400).json({
         success: false,
@@ -61,8 +64,14 @@ const createCategory = async (req, res) => {
       });
     }
 
+    const slug = trimmedName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
     const category = await Category.create({
-      name: name.trim(),
+      name: trimmedName,
+      slug,
       description: description || "",
       image: image || "",
       status: status || "active",
@@ -77,7 +86,10 @@ const createCategory = async (req, res) => {
     console.error("Create category error:", error);
     res.status(500).json({
       success: false,
-      message: error.code === 11000 ? "Category already exists" : "Failed to create category",
+      message:
+        error.code === 11000
+          ? "Category already exists"
+          : "Failed to create category",
       error: error.message,
     });
   }
