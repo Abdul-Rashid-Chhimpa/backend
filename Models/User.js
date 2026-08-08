@@ -11,14 +11,19 @@ const userSchema = new mongoose.Schema(
     state: { type: String, default: "" },
     pincode: { type: String, default: "" },
     country: { type: String, default: "India" },
-    role: { type: String, default: "user" },
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
+    },
     status: {
-  type: String,
-  enum: ["active", "blocked"],
-  default: "active",
-},
+      type: String,
+      enum: ["active", "blocked"],
+      default: "active",
+    },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("User", userSchema);
+// Overwrite error avoid
+module.exports = mongoose.models.User || mongoose.model("User", userSchema);
