@@ -11,6 +11,7 @@ const app = express();
 const userRoutes = require("./Routers/userRoutes");
 const settingsRoutes = require("./Routers/settingsRoutes");
 const categoryRoutes = require("./Routers/categoryRoutes");
+const analyticsRoutes = require("./Routes/analyticsRoutes");
 // Upload Folder
 if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
@@ -40,6 +41,9 @@ app.use("/api/orders", orderRoutes);
 app.use("/api", userRoutes);
 app.use("/api", settingsRoutes);
 app.use("/api", categoryRoutes);
+
+
+app.use("/api/analytics", analyticsRoutes);
 // MongoDB
 mongoose
   .connect(process.env.MONGO_URI)
