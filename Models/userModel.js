@@ -1,48 +1,17 @@
+// Models/User.js
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    mobile: {
-      type: String,
-      default: "",
-    },
-    address: {
-      type: String,
-      default: "",
-    },
-    city: {
-      type: String,
-      default: "",
-    },
-    state: {
-      type: String,
-      default: "",
-    },
-    pincode: {
-      type: String,
-      default: "",
-    },
-    country: {
-      type: String,
-      default: "India",
-    },
-    // Admin panel ke liye
+    name: String,
+    email: { type: String, unique: true },
+    password: String,
+    mobile: String,
+    address: String,
+    city: String,
+    state: String,
+    pincode: String,
+    country: { type: String, default: "India" },
     status: {
       type: String,
       enum: ["active", "blocked"],
@@ -54,7 +23,8 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
   },
-  { timestamps: true } // createdAt, updatedAt auto
+  { timestamps: true }
 );
 
-module.exports = mongoose.model("User", userSchema);
+// Already compiled ho to wahi return karo
+module.exports = mongoose.models.User || mongoose.model("User", userSchema);
