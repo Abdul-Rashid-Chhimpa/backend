@@ -1,4 +1,4 @@
-const Product = require("../Models/Product"); // apna path check karo
+const Product = require("../Models/productdb");// apna path check karo
 const Category = require("../Models/Category");
 const User = require("../Models/User"); // agar model naam alag ho to fix karo
 
