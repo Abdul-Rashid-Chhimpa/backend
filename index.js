@@ -10,6 +10,7 @@ dotenv.config();
 const app = express();
 const userRoutes = require("./Routers/userRoutes");
 const settingsRoutes = require("./Routers/settingsRoutes");
+const categoryRoutes = require("./Routers/categoryRoutes");
 // Upload Folder
 if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
@@ -37,8 +38,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api", userRoutes);
-
 app.use("/api", settingsRoutes);
+app.use("/api", categoryRoutes);
 // MongoDB
 mongoose
   .connect(process.env.MONGO_URI)
