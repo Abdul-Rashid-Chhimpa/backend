@@ -1,5 +1,5 @@
-const User = require("../Models/userModel")
 
+const User = require("../Models/User");
 // GET all users (Admin)
 const getAllUsers = async (req, res) => {
   try {
