@@ -1,6 +1,6 @@
-const Product = require("../models/productdb");
-const User = require("../models/User");
-const Category = require("../models/Category");
+const Product = require("../Models/productdb");
+const User = require("../Models/User");
+const Category = require("../Models/Category");
 
 exports.getAnalytics = async (req, res) => {
   try {
