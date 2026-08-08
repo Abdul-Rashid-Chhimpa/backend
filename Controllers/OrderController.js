@@ -1,60 +1,48 @@
 const Order = require("../models/Order");
-const Product = require("../models/Product"); // Path Sahi Rakhein
+const Product = require("../models/Product");
 
-exports.createOrder = async (req, res) => {
+// Order Status Update Route Handler (Admin Panel "Delivered" Click)
+exports.updateOrderStatus = async (req, res) => {
   try {
-    // 1. Order save karein
-    const order = await Order.create(req.body);
+    const { status } = req.body;
+    const orderId = req.params.id;
 
-    // 2. Body me se items array find karein (Multiple Key Support)
-    const items =
-      req.body.orderItems ||
-      req.body.items ||
-      req.body.products ||
-      req.body.cartItems ||
-      [];
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
 
-    // Debugging Console (Backend Terminal me dekhein ki kya print ho raha hai)
-    console.log("Order Items Received:", items);
+    // Pehle se Delivered toh dubara stock kam na ho
+    if (order.status === "Delivered") {
+      return res.status(400).json({ success: false, message: "Order is already delivered" });
+    }
 
-    // 3. Stock Reduce Loop
-    for (const item of items) {
-      // Product ID extract karein
-      const productId =
-        item.product?._id ||
-        item.product ||
-        item.productId ||
-        item._id ||
-        item.id;
+    // Status ko Delivered mark karein
+    order.status = status || "Delivered";
+    await order.save();
 
-      // Quantity extract karein (Aapke UI me Qty: 250 dikh rha hai)
-      const quantity = Number(
-        item.quantity || item.qty || item.count || 1
-      );
+    // Jab Status "Delivered" ho jaye tabhi stock reduce hoga
+    if (status === "Delivered") {
+      const items = order.orderItems || order.items || order.products || [];
 
-      console.log(`Updating Product: ${productId}, Decreasing Stock By: ${quantity}`);
+      for (const item of items) {
+        const productId = item.product?._id || item.product || item.productId || item._id;
+        const quantity = Number(item.quantity || item.qty || 1);
 
-      if (productId) {
-        // Database update command
-        const updatedProd = await Product.findByIdAndUpdate(
-          productId,
-          { $inc: { stock: -quantity } }, // Stock 250 se ghat jayega
-          { new: true }
-        );
-
-        console.log("Updated Stock Result:", updatedProd?.stock);
+        if (productId) {
+          await Product.findByIdAndUpdate(productId, {
+            $inc: { stock: -quantity }, // Stock kam kar dega
+          });
+        }
       }
     }
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
+      message: "Order status updated and stock reduced successfully",
       order,
     });
   } catch (error) {
-    console.error("Create Order Error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
