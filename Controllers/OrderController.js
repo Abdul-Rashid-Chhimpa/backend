@@ -1,5 +1,5 @@
-const Order = require("../models/Order");
-const Product = require("../models/Product");
+const Order = require("../Models/orderdetails");
+const Product = require("../Models/productdb");
 
 // Order Status Update Route Handler (Admin Panel "Delivered" Click)
 exports.updateOrderStatus = async (req, res) => {
