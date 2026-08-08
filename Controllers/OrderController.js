@@ -2,44 +2,36 @@ const Order = require("../Models/orderdetails");
 const Product = require("../Models/productdb");
 
 // Order Status Update Route Handler (Admin Panel "Delivered" Click)
-exports.updateOrderStatus = async (req, res) => {
+
+exports.createOrder = async (req, res) => {
   try {
-    const { status } = req.body;
-    const orderId = req.params.id;
+    const { orderItems, items, products } = req.body;
+    
+    // Safety Array Check
+    const cartItems = orderItems || items || products || [];
 
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+    if (!cartItems || cartItems.length === 0) {
+      return res.status(400).json({ success: false, message: "No items in order" });
     }
 
-    // Pehle se Delivered toh dubara stock kam na ho
-    if (order.status === "Delivered") {
-      return res.status(400).json({ success: false, message: "Order is already delivered" });
-    }
+    // 1. Order Save Karein
+    const order = await Order.create(req.body);
 
-    // Status ko Delivered mark karein
-    order.status = status || "Delivered";
-    await order.save();
+    // 2. Buy karte hi stock minus karein
+    for (const item of cartItems) {
+      const productId = item.product?._id || item.product || item.productId || item._id;
+      const quantity = Number(item.quantity || item.qty || 1);
 
-    // Jab Status "Delivered" ho jaye tabhi stock reduce hoga
-    if (status === "Delivered") {
-      const items = order.orderItems || order.items || order.products || [];
-
-      for (const item of items) {
-        const productId = item.product?._id || item.product || item.productId || item._id;
-        const quantity = Number(item.quantity || item.qty || 1);
-
-        if (productId) {
-          await Product.findByIdAndUpdate(productId, {
-            $inc: { stock: -quantity }, // Stock kam kar dega
-          });
-        }
+      if (productId) {
+        await Product.findByIdAndUpdate(productId, {
+          $inc: { stock: -quantity } // Automatically stock reduce kar dega
+        });
       }
     }
 
-    res.status(200).json({
+    res.status(201).json({
       success: true,
-      message: "Order status updated and stock reduced successfully",
+      message: "Order placed and stock updated successfully",
       order,
     });
   } catch (error) {
