@@ -1,4 +1,4 @@
-const User = require("../Controllers/OrderController");
+const User = require("../Models/userModel")
 
 // GET all users (Admin)
 const getAllUsers = async (req, res) => {
