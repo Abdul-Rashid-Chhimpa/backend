@@ -10,5 +10,6 @@ const {
 router.get("/users", getAllUsers);
 router.get("/users/:id", getUserById);
 router.patch("/users/:id/toggle-block", toggleBlockUser);
+router.delete("/:id", deleteUser);
 
 module.exports = router;
