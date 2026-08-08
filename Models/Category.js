@@ -31,15 +31,14 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto slug from name
-categorySchema.pre("save", function (next) {
+// ✅ async hook — next use mat karo
+categorySchema.pre("save", async function () {
   if (this.name && (!this.slug || this.isModified("name"))) {
     this.slug = this.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
   }
-  next();
 });
 
 module.exports =
