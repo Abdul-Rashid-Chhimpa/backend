@@ -79,10 +79,39 @@ const getUserById = async (req, res) => {
     });
   }
 };
+// DELETE user — permanent
+const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete user error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete user",
+      error: error.message,
+    });
+  }
+};
+
+// module.exports mein add karo:
+// deleteUser,
 
 module.exports = {
   getAllUsers,
   toggleBlockUser,
   getUserById,
+  deleteUser
   // updateProfile already aapke paas hai
 };
