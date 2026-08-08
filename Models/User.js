@@ -11,7 +11,12 @@ const userSchema = new mongoose.Schema(
     state: { type: String, default: "" },
     pincode: { type: String, default: "" },
     country: { type: String, default: "India" },
-    role: { type: String, default: "user" }
+    role: { type: String, default: "user" },
+    status: {
+  type: String,
+  enum: ["active", "blocked"],
+  default: "active",
+},
   },
   { timestamps: true }
 );
