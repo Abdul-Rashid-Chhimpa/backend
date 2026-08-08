@@ -7,13 +7,6 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    mobile: {
-      type: String,
-      required: true,
-      unique: true,
-      minlength: 10,
-      maxlength: 10,
-    },
     email: {
       type: String,
       required: true,
@@ -24,21 +17,44 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      minlength: 6,
+    },
+    mobile: {
+      type: String,
+      default: "",
+    },
+    address: {
+      type: String,
+      default: "",
+    },
+    city: {
+      type: String,
+      default: "",
+    },
+    state: {
+      type: String,
+      default: "",
+    },
+    pincode: {
+      type: String,
+      default: "",
+    },
+    country: {
+      type: String,
+      default: "India",
+    },
+    // Admin panel ke liye
+    status: {
+      type: String,
+      enum: ["active", "blocked"],
+      default: "active",
     },
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user",
     },
-
-    // ========== Forgot Password Fields ==========
-    resetPasswordToken: String,
-    resetPasswordExpire: Date,
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true } // createdAt, updatedAt auto
 );
 
 module.exports = mongoose.model("User", userSchema);
