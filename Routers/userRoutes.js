@@ -4,6 +4,7 @@ const {
   getAllUsers,
   toggleBlockUser,
   getUserById,
+   deleteUser
 } = require("../Controllers/adminusercontroller"); // path check karo
 
 // Admin routes (baad mein auth middleware laga dena)
