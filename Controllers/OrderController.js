@@ -23,7 +23,6 @@ exports.updateOrderStatus = async (req, res) => {
     ) {
       const items = order.items || order.orderItems || [];
       for (const item of items) {
-        // Aapke Schema ke according 'item.id' primary key hai
         const productId = item.id || item.productId || item.product || item._id;
         const qty = Number(item.quantity || item.qty || 1);
 
@@ -42,7 +41,6 @@ exports.updateOrderStatus = async (req, res) => {
     ) {
       const items = order.items || order.orderItems || [];
       for (const item of items) {
-        // Aapke Schema ke according 'item.id' primary key hai
         const productId = item.id || item.productId || item.product || item._id;
         const qty = Number(item.quantity || item.qty || 1);
 
@@ -63,5 +61,33 @@ exports.updateOrderStatus = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// DELETE /api/orders/:id (Delete Order Controller)
+exports.deleteOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedOrder = await Order.findByIdAndDelete(id);
+
+    if (!deletedOrder) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found or already deleted",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Order deleted successfully",
+      orderId: id,
+    });
+  } catch (error) {
+    console.error("Delete Order Controller Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to delete order",
+    });
   }
 };
