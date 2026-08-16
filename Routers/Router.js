@@ -31,8 +31,9 @@ router.post(
         material: req.body.material,
         stock: Number(req.body.stock),
         description: req.body.description,
-        size: req.body.size || "", // ← ADDED
-        weight: req.body.weight || "", // ← ADDED
+        size: req.body.size || "",
+        weight: req.body.weight || "",
+        gst: req.body.gst ? Number(req.body.gst) : 0, // ← ADDED GST
         pricing,
         images: imageUrls,
         variantGroup: variantGroupValue,
@@ -72,7 +73,7 @@ router.get("/", async (req, res) => {
 
     const products = await Product.find(filter)
       .select(
-        "name price images category stock brand material offer pricing variantGroup description size weight" // ← ADDED size & weight
+        "name price images category stock brand material offer pricing variantGroup description size weight gst" // ← ADDED gst
       )
       .sort({ createdAt: -1 })
       .lean()
@@ -152,9 +153,10 @@ router.put(
         variantGroup: updatedVariantGroup,
       };
 
-      // Add size & weight to update fields if provided
-      if (req.body.size !== undefined) updateData.size = req.body.size; // ← ADDED
-      if (req.body.weight !== undefined) updateData.weight = req.body.weight; // ← ADDED
+      // Add size, weight & gst to update fields if provided
+      if (req.body.size !== undefined) updateData.size = req.body.size;
+      if (req.body.weight !== undefined) updateData.weight = req.body.weight;
+      if (req.body.gst !== undefined) updateData.gst = Number(req.body.gst); // ← ADDED GST
 
       if (req.body.pricing) {
         updateData.pricing = JSON.parse(req.body.pricing);
