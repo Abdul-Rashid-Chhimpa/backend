@@ -60,6 +60,12 @@ const productSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    gst: {
+      type: Number,
+      default: 0,
+      min: [0, "GST cannot be negative"],
+      max: [100, "GST percentage cannot exceed 100"],
+    }, // ← ADDED GST
     pricing: {
       type: [pricingSchema],
       required: true,
