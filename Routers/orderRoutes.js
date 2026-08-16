@@ -7,12 +7,7 @@ router.post("/create", async (req, res) => {
   try {
     console.log(req.body);
 
-    const {
-      userId,
-      customerName,
-      items,
-      totalAmount,
-    } = req.body;
+    const { userId, customerName, items, totalAmount } = req.body;
 
     if (
       !userId ||
@@ -49,34 +44,22 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// // GET ALL ORDERS (ADMIN PANEL)
-// router.get("/all", async (req, res) => {
-//   try {
-//     const orders = await Order.find().sort({ createdAt: -1 });
-
-//     res.json({
-//       success: true,
-//       orders,
-//     });
-//   } catch (error) {
-//     res.status(500).json(error);
-//   }
-// });
-
-// GET ALL ORDERS (ADMIN PANEL)
+// GET ALL ORDERS (ADMIN PANEL) - FIXED
 router.get("/all", async (req, res) => {
   try {
-    const orders = await Order.find()
-      .populate("items.product") // Agar array name 'items' hai
-      .populate("orderItems.product") // Agar array name 'orderItems' hai
-      .sort({ createdAt: -1 });
+    // Schema me direct items store hain, isliye populate ki zarurat nahi hai
+    const orders = await Order.find().sort({ createdAt: -1 });
 
     res.json({
       success: true,
       orders,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 });
 
@@ -94,7 +77,11 @@ router.put("/:id", async (req, res) => {
       order,
     });
   } catch (error) {
-    res.status(500).json(error);
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 });
 
