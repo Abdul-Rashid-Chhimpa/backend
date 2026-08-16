@@ -1,10 +1,23 @@
 const Product = require("../Models/productdb");
-const User = require("../Models/User");
-const Category = require("../Models/Category");
+const User = require("../Models/User"); // Agar aap userModel.js use kar rahe hain toh yahan change kar lein
+const Category = require("../Msodels/Category");
 
 exports.getAnalytics = async (req, res) => {
   try {
+    // 1. Data Fetching
     const products = await Product.find({});
+    const totalUsers = await User.countDocuments({});
+    
+    let totalCategories = 0;
+    try {
+      totalCategories = await Category.countDocuments({});
+    } catch (err) {
+      // Fallback agar Category model se fetch na ho paye
+      const uniqueCats = new Set(
+        products.map((p) => p.category?.toString()).filter(Boolean)
+      );
+      totalCategories = uniqueCats.size;
+    }
 
     let totalStock = 0;
     let inventoryValue = 0;
@@ -16,15 +29,16 @@ exports.getAnalytics = async (req, res) => {
     const outOfStockProducts = [];
 
     const formattedProducts = products.map((prod) => {
-      // Stock Fallback Handling
-      const currentStock = Number(prod.stock ?? prod.countInStock ?? prod.quantity ?? 0);
-      
-      // Price Fallback Handling (Aggressive Parsing)
+      // Stock extraction with schema fallback
+      const currentStock = Number(
+        prod.stock ?? prod.countInStock ?? prod.quantity ?? 0
+      );
       const price = Number(prod.price ?? prod.unitPrice ?? prod.cost ?? 0);
 
       totalStock += currentStock;
       inventoryValue += currentStock * price;
 
+      // Dynamic Stock Condition Check
       if (currentStock === 0) {
         outOfStock += 1;
         outOfStockProducts.push({ ...prod._doc, stock: currentStock, price });
@@ -38,21 +52,39 @@ exports.getAnalytics = async (req, res) => {
       return {
         ...prod._doc,
         stock: currentStock,
-        price: price, // Enforces Price is returned properly
+        price,
       };
     });
 
+    // Category Breakdown
+    const catMap = {};
+    products.forEach((p) => {
+      const catName = p.category?.name || p.category || "Uncategorized";
+      const stock = Number(p.stock ?? p.countInStock ?? 0);
+
+      if (!catMap[catName]) {
+        catMap[catName] = { name: catName, count: 0, stock: 0 };
+      }
+      catMap[catName].count += 1;
+      catMap[catName].stock += stock;
+    });
+    const productsByCategory = Object.values(catMap);
+
+    // Final Payload
     res.status(200).json({
       success: true,
       analytics: {
         overview: {
           totalProducts: products.length,
+          totalCategories: totalCategories || productsByCategory.length,
+          totalUsers,
           totalStock,
           inventoryValue,
           inStock,
           lowStock,
           outOfStock,
         },
+        productsByCategory,
         lowStockProducts,
         outOfStockProducts,
         recentProducts: formattedProducts.slice(-5).reverse(),
