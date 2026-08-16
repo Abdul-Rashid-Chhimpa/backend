@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const Product = require("../Models/productdb"); // path check karo (M capital?)
-const upload = require("../Middelware/upload"); // path check karo
+const Product = require("../Models/productdb");
+const upload = require("../Middelware/upload");
 
 // ======================================
 // ADD PRODUCT
@@ -19,9 +19,10 @@ router.post(
       const imageUrls = req.files ? req.files.map((file) => file.path) : [];
 
       // Space trim karke save kar rahe hain
-      const variantGroupValue = req.body.variantGroup && req.body.variantGroup.trim() !== ""
-        ? req.body.variantGroup.trim()
-        : null;
+      const variantGroupValue =
+        req.body.variantGroup && req.body.variantGroup.trim() !== ""
+          ? req.body.variantGroup.trim()
+          : null;
 
       const product = await Product.create({
         name: req.body.name,
@@ -30,6 +31,8 @@ router.post(
         material: req.body.material,
         stock: Number(req.body.stock),
         description: req.body.description,
+        size: req.body.size || "", // ← ADDED
+        weight: req.body.weight || "", // ← ADDED
         pricing,
         images: imageUrls,
         variantGroup: variantGroupValue,
@@ -69,7 +72,7 @@ router.get("/", async (req, res) => {
 
     const products = await Product.find(filter)
       .select(
-        "name price images category stock brand material offer pricing variantGroup description"
+        "name price images category stock brand material offer pricing variantGroup description size weight" // ← ADDED size & weight
       )
       .sort({ createdAt: -1 })
       .lean()
@@ -116,7 +119,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // ======================================
-// UPDATE PRODUCT (FIXED BUG HERE)
+// UPDATE PRODUCT
 // ======================================
 router.put(
   "/:id",
@@ -131,7 +134,6 @@ router.put(
         });
       }
 
-      // 🔥 FIX: Check agar variantGroup empty string ("") aayi hai to database me null save ho
       let updatedVariantGroup = product.variantGroup;
       if (req.body.variantGroup !== undefined) {
         updatedVariantGroup =
@@ -147,8 +149,12 @@ router.put(
         material: req.body.material,
         stock: Number(req.body.stock),
         description: req.body.description,
-        variantGroup: updatedVariantGroup, // Corrected logic
+        variantGroup: updatedVariantGroup,
       };
+
+      // Add size & weight to update fields if provided
+      if (req.body.size !== undefined) updateData.size = req.body.size; // ← ADDED
+      if (req.body.weight !== undefined) updateData.weight = req.body.weight; // ← ADDED
 
       if (req.body.pricing) {
         updateData.pricing = JSON.parse(req.body.pricing);
@@ -158,7 +164,6 @@ router.put(
       if (req.body.images) {
         images = JSON.parse(req.body.images);
       } else if (req.body.existingImages) {
-        // Safe check if existingImages passed from frontend
         images = JSON.parse(req.body.existingImages);
       } else {
         images = [...product.images];
