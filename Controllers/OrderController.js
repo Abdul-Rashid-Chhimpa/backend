@@ -91,3 +91,55 @@ exports.deleteOrder = async (req, res) => {
     });
   }
 };
+const PDFDocument = require("pdfkit");
+
+// GET /api/orders/:orderId/pdf
+exports.downloadOrderPDF = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // 1. Database se Order Fetch Karein (Example)
+    // const order = await Order.findById(orderId);
+
+    // Sample Dummy Data for testing
+    const order = {
+      orderId: orderId,
+      customerName: "Rahul Sharma",
+      totalAmount: 1500,
+      items: [{ title: "Product 1", quantity: 2, price: 750 }]
+    };
+
+    // 2. Create PDF Stream
+    const doc = new PDFDocument({ margin: 30 });
+
+    // Set Headers for Download
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=Invoice_${order.orderId}.pdf`
+    );
+
+    doc.pipe(res);
+
+    // PDF Content Design
+    doc.fontSize(20).text("TAX INVOICE", { align: "center" });
+    doc.moveDown();
+    doc.fontSize(12).text(`Order ID: ${order.orderId}`);
+    doc.text(`Customer Name: ${order.customerName}`);
+    doc.moveDown();
+
+    doc.text("--------------------------------------------------");
+    order.items.forEach((item) => {
+      doc.text(`${item.title} x ${item.quantity} = ₹${item.price * item.quantity}`);
+    });
+    doc.text("--------------------------------------------------");
+    doc.moveDown();
+    doc.fontSize(14).text(`Total Amount: ₹${order.totalAmount}`, { bold: true });
+
+    // End Stream
+    doc.end();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to generate PDF" });
+  }
+};
