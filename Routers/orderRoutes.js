@@ -2,6 +2,12 @@ const express = require("express");
 const router = express.Router();
 const Order = require("../Models/orderdetails");
 
+// Import controllers
+const {
+  updateOrderStatus,
+  deleteOrder,
+} = require("../Controllers/orderController"); // Ensure path to your controller file is correct
+
 // CREATE ORDER
 router.post("/create", async (req, res) => {
   try {
@@ -44,10 +50,9 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// GET ALL ORDERS (ADMIN PANEL) - FIXED
+// GET ALL ORDERS (ADMIN PANEL)
 router.get("/all", async (req, res) => {
   try {
-    // Schema me direct items store hain, isliye populate ki zarurat nahi hai
     const orders = await Order.find().sort({ createdAt: -1 });
 
     res.json({
@@ -63,26 +68,10 @@ router.get("/all", async (req, res) => {
   }
 });
 
-// UPDATE STATUS
-router.put("/:id", async (req, res) => {
-  try {
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { status: req.body.status },
-      { new: true }
-    );
+// UPDATE STATUS (Stock decrement/increment logic ke saath)
+router.put("/:id", updateOrderStatus);
 
-    res.json({
-      success: true,
-      order,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
+// DELETE ORDER (Permanent delete route)
+router.delete("/:id", deleteOrder);
 
 module.exports = router;
