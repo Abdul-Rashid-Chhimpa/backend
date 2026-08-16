@@ -7,7 +7,7 @@ exports.getAnalytics = async (req, res) => {
     // 1. Data Fetching
     const products = await Product.find({});
     const totalUsers = await User.countDocuments({});
-    
+
     let totalCategories = 0;
     try {
       totalCategories = await Category.countDocuments({});
@@ -70,6 +70,17 @@ exports.getAnalytics = async (req, res) => {
     });
     const productsByCategory = Object.values(catMap);
 
+    // Brand Breakdown (ADDED FIX)
+    const brandMap = {};
+    products.forEach((p) => {
+      const brandName = p.brand?.name || p.brand || "Unbranded";
+      if (!brandMap[brandName]) {
+        brandMap[brandName] = { name: brandName, count: 0 };
+      }
+      brandMap[brandName].count += 1;
+    });
+    const productsByBrand = Object.values(brandMap);
+
     // Final Payload
     res.status(200).json({
       success: true,
@@ -85,6 +96,7 @@ exports.getAnalytics = async (req, res) => {
           outOfStock,
         },
         productsByCategory,
+        productsByBrand, // <-- Ab payload me Send kar diya gaya hai
         lowStockProducts,
         outOfStockProducts,
         recentProducts: formattedProducts.slice(-5).reverse(),
