@@ -49,17 +49,34 @@ router.post("/create", async (req, res) => {
   }
 });
 
+// // GET ALL ORDERS (ADMIN PANEL)
+// router.get("/all", async (req, res) => {
+//   try {
+//     const orders = await Order.find().sort({ createdAt: -1 });
+
+//     res.json({
+//       success: true,
+//       orders,
+//     });
+//   } catch (error) {
+//     res.status(500).json(error);
+//   }
+// });
+
 // GET ALL ORDERS (ADMIN PANEL)
 router.get("/all", async (req, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
+    const orders = await Order.find()
+      .populate("items.product") // Agar array name 'items' hai
+      .populate("orderItems.product") // Agar array name 'orderItems' hai
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
       orders,
     });
   } catch (error) {
-    res.status(500).json(error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
