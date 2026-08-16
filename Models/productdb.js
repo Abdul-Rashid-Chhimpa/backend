@@ -50,6 +50,16 @@ const productSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    size: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    weight: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     pricing: {
       type: [pricingSchema],
       required: true,
