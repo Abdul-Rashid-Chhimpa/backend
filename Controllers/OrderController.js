@@ -1,62 +1,66 @@
-// orderController.js
-const Product = require("../Models/productdb"); // Aapka Product Model
-const Order = require("../Models/orderdetails"); // Aapka Order Model
+const Product = require("../Models/productdb");
+const Order = require("../Models/orderdetails");
 
 exports.createOrder = async (req, res) => {
   try {
     const { orderItems, shippingAddress, paymentMethod, totalPrice } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
-      return res.status(400).json({ message: "No order items found" });
+      return res.status(400).json({ success: false, message: "No items found in order" });
     }
 
-    // 1. Check & Update Stock for Each Product dynamically
+    // 1. Pre-check Stock Availability
     for (const item of orderItems) {
-      const product = await Product.findById(item.product || item._id);
+      const productId = item.product || item._id;
+      const product = await Product.findById(productId);
 
       if (!product) {
-        return res.status(404).json({ message: `Product not found: ${item.name}` });
-      }
-
-      // Read current stock dynamically
-      const currentStock = Number(product.stock ?? product.countInStock ?? product.quantity ?? 0);
-
-      // Check if enough stock is available
-      if (currentStock < item.quantity) {
-        return res.status(400).json({
-          message: `Insufficient stock for ${product.name}. Only ${currentStock} left!`,
+        return res.status(404).json({
+          success: false,
+          message: `Product not found: ${item.name || "Unknown Product"}`,
         });
       }
 
-      // Decrement stock dynamically
-      product.stock = currentStock - Number(item.quantity);
-      
-      // Update countInStock / quantity if your schema uses those field names
-      if (product.countInStock !== undefined) product.countInStock = product.stock;
-      if (product.quantity !== undefined) product.quantity = product.stock;
-
-      await product.save();
+      const requestedQty = Number(item.quantity || item.qty || 1);
+      if (product.stock < requestedQty) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient stock for "${product.name}". Only ${product.stock} items left!`,
+        });
+      }
     }
 
-    // 2. Save New Order
-    const newOrder = new Order({
-      user: req.user._id,
+    // 2. Atomically Decrement Stock in Database
+    for (const item of orderItems) {
+      const productId = item.product || item._id;
+      const requestedQty = Number(item.quantity || item.qty || 1);
+
+      await Product.updateOne(
+        { _id: productId, stock: { $gte: requestedQty } },
+        { $inc: { stock: -requestedQty } }
+      );
+    }
+
+    // 3. Create & Save Order
+    const order = new Order({
+      user: req.user?._id || req.body.userId,
       orderItems,
       shippingAddress,
       paymentMethod,
       totalPrice,
-      isPaid: true,
-      paidAt: Date.now(),
+      isPaid: paymentMethod === "Online" || paymentMethod === "Card",
+      paidAt: paymentMethod === "Online" ? Date.now() : null,
     });
 
-    const createdOrder = await newOrder.save();
+    const savedOrder = await order.save();
 
     res.status(201).json({
       success: true,
-      message: "Order placed and stock updated successfully!",
-      order: createdOrder,
+      message: "Order placed successfully! Stock updated dynamically.",
+      order: savedOrder,
     });
   } catch (error) {
+    console.error("Order creation error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
