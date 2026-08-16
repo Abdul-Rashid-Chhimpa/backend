@@ -23,7 +23,8 @@ exports.updateOrderStatus = async (req, res) => {
     ) {
       const items = order.items || order.orderItems || [];
       for (const item of items) {
-        const productId = item.productId || item.product || item._id;
+        // Aapke Schema ke according 'item.id' primary key hai
+        const productId = item.id || item.productId || item.product || item._id;
         const qty = Number(item.quantity || item.qty || 1);
 
         if (productId) {
@@ -41,7 +42,8 @@ exports.updateOrderStatus = async (req, res) => {
     ) {
       const items = order.items || order.orderItems || [];
       for (const item of items) {
-        const productId = item.productId || item.product || item._id;
+        // Aapke Schema ke according 'item.id' primary key hai
+        const productId = item.id || item.productId || item.product || item._id;
         const qty = Number(item.quantity || item.qty || 1);
 
         if (productId) {
