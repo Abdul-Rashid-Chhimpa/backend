@@ -1,66 +1,65 @@
-const Product = require("../Models/productdb");
 const Order = require("../Models/orderdetails");
+const Product = require("../Models/productdb");
 
-exports.createOrder = async (req, res) => {
+// Update Order Status Handler
+exports.updateOrderStatus = async (req, res) => {
   try {
-    const { orderItems, shippingAddress, paymentMethod, totalPrice } = req.body;
+    const { orderId } = req.params;
+    const { status } = req.body; // 'Pending', 'Shipped', 'Delivered', 'Cancel'
 
-    if (!orderItems || orderItems.length === 0) {
-      return res.status(400).json({ success: false, message: "No items found in order" });
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    // 1. Pre-check Stock Availability
-    for (const item of orderItems) {
-      const productId = item.product || item._id;
-      const product = await Product.findById(productId);
+    const previousStatus = order.status;
+    order.status = status;
 
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: `Product not found: ${item.name || "Unknown Product"}`,
-        });
+    // Trigger stock deduction ONLY when changing to 'Shipped' or 'Delivered' for the first time
+    if (
+      (status === "Shipped" || status === "Delivered") &&
+      previousStatus !== "Shipped" &&
+      previousStatus !== "Delivered"
+    ) {
+      const items = order.orderItems || order.items || [];
+      
+      for (const item of items) {
+        const productId = item.product || item._id;
+        const qty = Number(item.quantity || item.qty || 1);
+
+        // Atomic stock deduction
+        await Product.updateOne(
+          { _id: productId, stock: { $gte: qty } },
+          { $inc: { stock: -qty } }
+        );
       }
+    }
 
-      const requestedQty = Number(item.quantity || item.qty || 1);
-      if (product.stock < requestedQty) {
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for "${product.name}". Only ${product.stock} items left!`,
-        });
+    // Restore stock if Order is Cancelled from Shipped/Delivered status
+    if (
+      status === "Cancel" &&
+      (previousStatus === "Shipped" || previousStatus === "Delivered")
+    ) {
+      const items = order.orderItems || order.items || [];
+      for (const item of items) {
+        const productId = item.product || item._id;
+        const qty = Number(item.quantity || item.qty || 1);
+
+        await Product.updateOne(
+          { _id: productId },
+          { $inc: { stock: qty } }
+        );
       }
     }
 
-    // 2. Atomically Decrement Stock in Database
-    for (const item of orderItems) {
-      const productId = item.product || item._id;
-      const requestedQty = Number(item.quantity || item.qty || 1);
+    const updatedOrder = await order.save();
 
-      await Product.updateOne(
-        { _id: productId, stock: { $gte: requestedQty } },
-        { $inc: { stock: -requestedQty } }
-      );
-    }
-
-    // 3. Create & Save Order
-    const order = new Order({
-      user: req.user?._id || req.body.userId,
-      orderItems,
-      shippingAddress,
-      paymentMethod,
-      totalPrice,
-      isPaid: paymentMethod === "Online" || paymentMethod === "Card",
-      paidAt: paymentMethod === "Online" ? Date.now() : null,
-    });
-
-    const savedOrder = await order.save();
-
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      message: "Order placed successfully! Stock updated dynamically.",
-      order: savedOrder,
+      message: `Order status updated to ${status}!`,
+      order: updatedOrder,
     });
   } catch (error) {
-    console.error("Order creation error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
