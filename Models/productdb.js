@@ -32,6 +32,7 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      index: true, // Fast category search & analytics query
     },
     material: {
       type: String,
@@ -40,8 +41,9 @@ const productSchema = new mongoose.Schema(
     },
     stock: {
       type: Number,
+      required: true,
       default: 0,
-      min: 0,
+      min: [0, "Stock cannot be negative"],
     },
     description: {
       type: String,
@@ -52,7 +54,7 @@ const productSchema = new mongoose.Schema(
       type: [pricingSchema],
       required: true,
       validate: {
-        validator: (value) => value.length > 0,
+        validator: (value) => Array.isArray(value) && value.length > 0,
         message: "At least one pricing option is required.",
       },
     },
