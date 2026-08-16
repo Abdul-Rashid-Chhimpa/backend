@@ -1,6 +1,6 @@
 const Product = require("../Models/productdb");
 const User = require("../Models/User"); // Agar aap userModel.js use kar rahe hain toh yahan change kar lein
-const Category = require("../Msodels/Category");
+const Category = require("../Models/Category");
 
 exports.getAnalytics = async (req, res) => {
   try {
