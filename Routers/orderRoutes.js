@@ -6,7 +6,7 @@ const Order = require("../Models/orderdetails");
 const {
   updateOrderStatus,
   deleteOrder,
-} = require("../Controllers/orderController"); // Ensure path to your controller file is correct
+} = require("../Controllers/OrderController"); // Ensure path to your controller file is correct
 
 // CREATE ORDER
 router.post("/create", async (req, res) => {
