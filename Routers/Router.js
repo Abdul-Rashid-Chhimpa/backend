@@ -13,13 +13,13 @@ const parseJSON = (data, fallback = []) => {
   }
 };
 
-
 // ======================================
 // ADD PRODUCT
 // ======================================
 router.post("/add-product", upload.array("images", 10), async (req, res) => {
   try {
     const pricing = parseJSON(req.body.pricing, []);
+    const paymentMethods = parseJSON(req.body.paymentMethods, req.body.paymentMethods || []);
     const imageUrls = req.files ? req.files.map((file) => file.path) : [];
 
     const variantGroupValue =
@@ -37,6 +37,8 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
       size: req.body.size || "",
       weight: req.body.weight || "",
       gst: req.body.gst ? Number(req.body.gst) : 0,
+      delivery: req.body.delivery || "",
+      paymentMethods: paymentMethods,
       pricing,
       images: imageUrls,
       variantGroup: variantGroupValue,
@@ -68,7 +70,7 @@ router.get("/", async (req, res) => {
 
     const products = await Product.find(filter)
       .select(
-        "name price images category stock brand material offer pricing variantGroup description size weight gst"
+        "name price images category stock brand material offer pricing variantGroup description size weight gst delivery paymentMethods payment"
       )
       .sort({ createdAt: -1 })
       .lean()
@@ -148,6 +150,10 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
     if (req.body.size !== undefined) updateData.size = req.body.size;
     if (req.body.weight !== undefined) updateData.weight = req.body.weight;
     if (req.body.gst !== undefined) updateData.gst = Number(req.body.gst) || 0;
+    if (req.body.delivery !== undefined) updateData.delivery = req.body.delivery;
+    if (req.body.paymentMethods !== undefined) {
+      updateData.paymentMethods = parseJSON(req.body.paymentMethods, req.body.paymentMethods);
+    }
 
     if (req.body.pricing) {
       updateData.pricing = parseJSON(req.body.pricing, []);
