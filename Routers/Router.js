@@ -119,6 +119,9 @@ router.get("/:id", async (req, res) => {
 // ======================================
 // UPDATE PRODUCT
 // ======================================
+// ======================================
+// UPDATE PRODUCT (FIXED)
+// ======================================
 router.put("/:id", upload.array("images", 10), async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -137,6 +140,7 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
           : null;
     }
 
+    // 1. Core Update Object
     const updateData = {
       name: req.body.name,
       brand: req.body.brand,
@@ -147,18 +151,27 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       variantGroup: updatedVariantGroup,
     };
 
+    // 2. Optional Fields Update
     if (req.body.size !== undefined) updateData.size = req.body.size;
     if (req.body.weight !== undefined) updateData.weight = req.body.weight;
     if (req.body.gst !== undefined) updateData.gst = Number(req.body.gst) || 0;
-    if (req.body.delivery !== undefined) updateData.delivery = req.body.delivery;
-    if (req.body.paymentMethods !== undefined) {
-      updateData.paymentMethods = parseJSON(req.body.paymentMethods, req.body.paymentMethods);
+
+    // 3. FIX: Delivery & Payment Update
+    if (req.body.delivery !== undefined) {
+      updateData.delivery = req.body.delivery;
+    }
+    if (req.body.paymentMethods !== undefined || req.body.payment !== undefined) {
+      const paymentData = req.body.paymentMethods || req.body.payment;
+      updateData.paymentMethods = parseJSON(paymentData, paymentData);
+      updateData.payment = parseJSON(paymentData, paymentData); // Dono keys handle ki hain
     }
 
+    // 4. Pricing Update
     if (req.body.pricing) {
       updateData.pricing = parseJSON(req.body.pricing, []);
     }
 
+    // 5. Images Update Logic
     let images = [];
     if (req.body.images) {
       images = parseJSON(req.body.images, []);
@@ -190,6 +203,7 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
 
     updateData.images = images;
 
+    // Save to Database
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
       updateData,
