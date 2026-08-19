@@ -32,7 +32,7 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      index: true, // Fast category search & analytics query
+      index: true,
     },
     material: {
       type: String,
@@ -65,7 +65,22 @@ const productSchema = new mongoose.Schema(
       default: 0,
       min: [0, "GST cannot be negative"],
       max: [100, "GST percentage cannot exceed 100"],
-    }, // ← ADDED GST
+    },
+    
+    // 1. DELIVERY CHARGE FIELD ADDED
+    delivery: {
+      type: Number,
+      default: 150,
+      min: [0, "Delivery charge cannot be negative"],
+    },
+
+    // 2. PAYMENT METHODS FIELD ADDED
+    paymentMethods: {
+      type: [String],
+      enum: ["upi", "card", "cod", "netbanking"],
+      default: ["upi", "card", "cod", "netbanking"],
+    },
+
     pricing: {
       type: [pricingSchema],
       required: true,
