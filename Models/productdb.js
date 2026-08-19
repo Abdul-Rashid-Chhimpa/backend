@@ -83,11 +83,20 @@ delivery: {
 },
 
     // 2. PAYMENT METHODS FIELD ADDED
-    paymentMethods: {
-      type: [String],
-      enum: ["upi", "card", "cod", "netbanking"],
-      default: ["upi", "card", "cod", "netbanking"],
-    },
+   paymentMethods: {
+  type: [String],
+  enum: [
+    "Cash on Delivery", 
+    "UPI / Online Payment", 
+    "Credit / Debit Card", 
+    "Net Banking",
+    "upi", 
+    "card", 
+    "cod", 
+    "netbanking"
+  ],
+  default: ["Cash on Delivery", "UPI / Online Payment"],
+},
 
     pricing: {
       type: [pricingSchema],
