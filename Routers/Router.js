@@ -121,6 +121,7 @@ router.get("/:id", async (req, res) => {
 // ======================================
 // UPDATE PRODUCT
 // ======================================
+// ================= UPDATE PRODUCT ROUTE =================
 router.put("/:id", upload.array("images", 10), async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -139,7 +140,6 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
           : null;
     }
 
-    // 1. Core Update Object
     const updateData = {
       name: req.body.name,
       brand: req.body.brand,
@@ -150,53 +150,53 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       variantGroup: updatedVariantGroup,
     };
 
-    // 2. Optional Fields Update
     if (req.body.size !== undefined) updateData.size = req.body.size;
     if (req.body.weight !== undefined) updateData.weight = req.body.weight;
     if (req.body.gst !== undefined) updateData.gst = Number(req.body.gst) || 0;
 
-    // 3. FIX: Delivery Charge & Details Parsing
-    if (req.body.delivery !== undefined) {
+    // FIX: Unified Delivery parsing
+    if (req.body.delivery) {
       updateData.delivery = parseJSON(req.body.delivery, req.body.delivery);
+    } else if (req.body.deliveryCharge !== undefined || req.body.deliveryTime !== undefined) {
+      updateData.delivery = {
+        charge: Number(req.body.deliveryCharge) || 0,
+        time: req.body.deliveryTime || "",
+      };
     }
+    
+    // Also save flat fields if your Mongoose schema uses them
+    if (req.body.deliveryCharge !== undefined) updateData.deliveryCharge = Number(req.body.deliveryCharge) || 0;
+    if (req.body.deliveryTime !== undefined) updateData.deliveryTime = req.body.deliveryTime;
 
-    // 4. FIX: Payment Methods Update (handles array/JSON or single values)
+    // FIX: Payment Methods fallback handling
     if (req.body.paymentMethods !== undefined || req.body.payment !== undefined) {
-      const rawPaymentData = req.body.paymentMethods !== undefined ? req.body.paymentMethods : req.body.payment;
-      const parsedPayment = parseJSON(rawPaymentData, []);
-      
+      const rawPayment = req.body.paymentMethods ?? req.body.payment;
+      const parsedPayment = parseJSON(rawPayment, []);
       updateData.paymentMethods = parsedPayment;
       updateData.payment = parsedPayment;
     }
 
-    // 5. Pricing Update
     if (req.body.pricing) {
       updateData.pricing = parseJSON(req.body.pricing, []);
     }
 
-    // 6. Images Update Logic
+    // Images Handling
     let images = [];
-    if (req.body.images) {
-      images = parseJSON(req.body.images, []);
-    } else if (req.body.existingImages) {
+    if (req.body.existingImages) {
       images = parseJSON(req.body.existingImages, []);
     } else {
       images = [...product.images];
     }
 
     let replaceIndexes = parseJSON(req.body.replaceIndexes, []);
-    if (!Array.isArray(replaceIndexes) && req.body.replaceIndexes) {
+    if (!Array.isArray(replaceIndexes) && req.body.replaceIndexes !== undefined) {
       replaceIndexes = [req.body.replaceIndexes];
     }
 
     if (req.files && req.files.length > 0) {
       req.files.forEach((file, i) => {
         const replaceIndex = Number(replaceIndexes[i]);
-        if (
-          !isNaN(replaceIndex) &&
-          replaceIndex >= 0 &&
-          replaceIndex < images.length
-        ) {
+        if (!isNaN(replaceIndex) && replaceIndex >= 0 && replaceIndex < images.length) {
           images[replaceIndex] = file.path;
         } else {
           images.push(file.path);
@@ -206,7 +206,6 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
 
     updateData.images = images;
 
-    // Save to Database
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
       { $set: updateData },
@@ -225,9 +224,7 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       message: error.message,
     });
   }
-});
-
-// ======================================
+});// ======================================
 // DELETE PRODUCT
 // ======================================
 router.delete("/:id", async (req, res) => {
