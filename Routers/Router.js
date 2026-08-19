@@ -3,11 +3,12 @@ const router = express.Router();
 const Product = require("../Models/productdb");
 const upload = require("../Middelware/upload");
 
-// Safe Helper for Parsing JSON
+// Safe Helper for Parsing JSON (Handles strings, arrays, objects)
 const parseJSON = (data, fallback = []) => {
-  if (!data) return fallback;
+  if (data === undefined || data === null) return fallback;
+  if (typeof data === "object") return data;
   try {
-    return typeof data === "string" ? JSON.parse(data) : data;
+    return JSON.parse(data);
   } catch (err) {
     return fallback;
   }
@@ -19,7 +20,8 @@ const parseJSON = (data, fallback = []) => {
 router.post("/add-product", upload.array("images", 10), async (req, res) => {
   try {
     const pricing = parseJSON(req.body.pricing, []);
-    const paymentMethods = parseJSON(req.body.paymentMethods, req.body.paymentMethods || []);
+    const paymentMethods = parseJSON(req.body.paymentMethods || req.body.payment, []);
+    const delivery = parseJSON(req.body.delivery, req.body.delivery || "");
     const imageUrls = req.files ? req.files.map((file) => file.path) : [];
 
     const variantGroupValue =
@@ -30,14 +32,14 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
     const product = await Product.create({
       name: req.body.name,
       brand: req.body.brand,
-      category: req.body.category,
+      category: req.category,
       material: req.body.material,
       stock: Number(req.body.stock) || 0,
       description: req.body.description,
       size: req.body.size || "",
       weight: req.body.weight || "",
       gst: req.body.gst ? Number(req.body.gst) : 0,
-      delivery: req.body.delivery || "",
+      delivery: delivery,
       paymentMethods: paymentMethods,
       pricing,
       images: imageUrls,
@@ -119,9 +121,6 @@ router.get("/:id", async (req, res) => {
 // ======================================
 // UPDATE PRODUCT
 // ======================================
-// ======================================
-// UPDATE PRODUCT (FIXED)
-// ======================================
 router.put("/:id", upload.array("images", 10), async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -156,22 +155,26 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
     if (req.body.weight !== undefined) updateData.weight = req.body.weight;
     if (req.body.gst !== undefined) updateData.gst = Number(req.body.gst) || 0;
 
-    // 3. FIX: Delivery & Payment Update
+    // 3. FIX: Delivery Charge & Details Parsing
     if (req.body.delivery !== undefined) {
-      updateData.delivery = req.body.delivery;
-    }
-    if (req.body.paymentMethods !== undefined || req.body.payment !== undefined) {
-      const paymentData = req.body.paymentMethods || req.body.payment;
-      updateData.paymentMethods = parseJSON(paymentData, paymentData);
-      updateData.payment = parseJSON(paymentData, paymentData); // Dono keys handle ki hain
+      updateData.delivery = parseJSON(req.body.delivery, req.body.delivery);
     }
 
-    // 4. Pricing Update
+    // 4. FIX: Payment Methods Update (handles array/JSON or single values)
+    if (req.body.paymentMethods !== undefined || req.body.payment !== undefined) {
+      const rawPaymentData = req.body.paymentMethods !== undefined ? req.body.paymentMethods : req.body.payment;
+      const parsedPayment = parseJSON(rawPaymentData, []);
+      
+      updateData.paymentMethods = parsedPayment;
+      updateData.payment = parsedPayment;
+    }
+
+    // 5. Pricing Update
     if (req.body.pricing) {
       updateData.pricing = parseJSON(req.body.pricing, []);
     }
 
-    // 5. Images Update Logic
+    // 6. Images Update Logic
     let images = [];
     if (req.body.images) {
       images = parseJSON(req.body.images, []);
@@ -206,7 +209,7 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
     // Save to Database
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
-      updateData,
+      { $set: updateData },
       { new: true, runValidators: true }
     );
 
