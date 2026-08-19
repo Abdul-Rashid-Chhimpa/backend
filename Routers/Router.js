@@ -17,10 +17,19 @@ const parseJSON = (data, fallback = []) => {
 // ======================================
 // ADD PRODUCT
 // ======================================
+// ======================================
+// ADD PRODUCT
+// ======================================
 router.post("/add-product", upload.array("images", 10), async (req, res) => {
   try {
     const pricing = parseJSON(req.body.pricing, []);
-    const paymentMethods = parseJSON(req.body.paymentMethods || req.body.payment, []);
+    
+    // Clean JSON parsing for paymentMethods
+    let paymentMethods = parseJSON(
+      req.body.paymentMethods || req.body.payment,
+      {}
+    );
+
     const delivery = parseJSON(req.body.delivery, req.body.delivery || "");
     const imageUrls = req.files ? req.files.map((file) => file.path) : [];
 
@@ -31,17 +40,17 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
 
     const product = await Product.create({
       name: req.body.name,
-      brand: req.body.brand,
-      category: req.category,
-      material: req.body.material,
+      brand: req.body.brand || "",
+      category: req.body.category, // 👈 FIXED: Changed from req.category to req.body.category
+      material: req.body.material || "",
       stock: Number(req.body.stock) || 0,
-      description: req.body.description,
+      description: req.body.description || "",
       size: req.body.size || "",
       weight: req.body.weight || "",
       gst: req.body.gst ? Number(req.body.gst) : 0,
       delivery: delivery,
       paymentMethods: paymentMethods,
-      pricing,
+      pricing: pricing,
       images: imageUrls,
       variantGroup: variantGroupValue,
     });
