@@ -68,11 +68,19 @@ const productSchema = new mongoose.Schema(
     },
     
     // 1. DELIVERY CHARGE FIELD ADDED
-    delivery: {
-      type: Number,
-      default: 150,
-      min: [0, "Delivery charge cannot be negative"],
-    },
+// ProductSchema mein delivery ko object structure dein
+delivery: {
+  charge: {
+    type: Number,
+    default: 150,
+    min: [0, "Delivery charge cannot be negative"],
+  },
+  time: {
+    type: String,
+    default: "3-5 business days",
+    trim: true,
+  },
+},
 
     // 2. PAYMENT METHODS FIELD ADDED
     paymentMethods: {
