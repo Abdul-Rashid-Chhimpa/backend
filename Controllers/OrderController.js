@@ -1,13 +1,51 @@
 const Order = require("../Models/orderdetails");
 const Product = require("../Models/productdb");
+const PDFDocument = require("pdfkit");
 
+// ================= 1. GET ALL ORDERS / BILLS (MISSING THA) =================
+// GET /api/orders
+exports.getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate("user", "name email phone")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: orders.length,
+      orders: orders,
+    });
+  } catch (error) {
+    console.error("Get All Orders Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch orders/bills",
+      error: error.message,
+    });
+  }
+};
+
+// ================= 2. GET SINGLE ORDER DETAILS =================
+// GET /api/orders/:id
+exports.getOrderById = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate("user", "name email phone");
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    return res.status(200).json({ success: true, order });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ================= 3. UPDATE ORDER STATUS =================
 // PUT /api/orders/:id
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body; // 'Pending', 'Shipped', 'Delivered', 'Cancelled'
 
-    
     const order = await Order.findById(id);
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
@@ -16,7 +54,7 @@ exports.updateOrderStatus = async (req, res) => {
     const prevStatus = order.status;
     order.status = status;
 
-    // 1. Stock Decrement when Status changes to Shipped/Delivered
+    // Stock Decrement when Status changes to Shipped/Delivered
     if (
       (status === "Shipped" || status === "Delivered") &&
       prevStatus !== "Shipped" &&
@@ -35,7 +73,7 @@ exports.updateOrderStatus = async (req, res) => {
       }
     }
 
-    // 2. Restore Stock if Order is Cancelled after being Shipped/Delivered
+    // Restore Stock if Order is Cancelled
     if (
       status === "Cancelled" &&
       (prevStatus === "Shipped" || prevStatus === "Delivered")
@@ -60,12 +98,13 @@ exports.updateOrderStatus = async (req, res) => {
       order: updatedOrder,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Update Status Error:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// DELETE /api/orders/:id (Delete Order Controller)
+// ================= 4. DELETE ORDER =================
+// DELETE /api/orders/:id
 exports.deleteOrder = async (req, res) => {
   try {
     const { id } = req.params;
@@ -92,55 +131,55 @@ exports.deleteOrder = async (req, res) => {
     });
   }
 };
-const PDFDocument = require("pdfkit");
 
+// ================= 5. DOWNLOAD PDF INVOICE (REAL DATA FIX) =================
 // GET /api/orders/:orderId/pdf
 exports.downloadOrderPDF = async (req, res) => {
   try {
     const { orderId } = req.params;
 
-    // 1. Database se Order Fetch Karein (Example)
-    // const order = await Order.findById(orderId);
+    // Real DB order fetch
+    const order = await Order.findById(orderId).populate("user", "name email");
 
-    // Sample Dummy Data for testing
-    const order = {
-      orderId: orderId,
-      customerName: "Rahul Sharma",
-      totalAmount: 1500,
-      items: [{ title: "Product 1", quantity: 2, price: 750 }]
-    };
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found for PDF" });
+    }
 
-    // 2. Create PDF Stream
     const doc = new PDFDocument({ margin: 30 });
 
-    // Set Headers for Download
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=Invoice_${order.orderId}.pdf`
+      `attachment; filename=Invoice_${order._id}.pdf`
     );
 
     doc.pipe(res);
 
-    // PDF Content Design
+    // Header
     doc.fontSize(20).text("TAX INVOICE", { align: "center" });
     doc.moveDown();
-    doc.fontSize(12).text(`Order ID: ${order.orderId}`);
-    doc.text(`Customer Name: ${order.customerName}`);
+    doc.fontSize(12).text(`Order ID: #${order._id}`);
+    doc.text(`Customer Name: ${order.user?.name || order.shippingAddress?.fullName || "Guest Customer"}`);
+    doc.text(`Payment Method: ${order.paymentMethod || "COD"}`);
     doc.moveDown();
 
     doc.text("--------------------------------------------------");
-    order.items.forEach((item) => {
-      doc.text(`${item.title} x ${item.quantity} = ₹${item.price * item.quantity}`);
+    const items = order.items || order.orderItems || [];
+    items.forEach((item) => {
+      const name = item.name || item.title || "Product";
+      const qty = item.quantity || item.qty || 1;
+      const price = item.price || 0;
+      doc.text(`${name} x ${qty} = ₹${price * qty}`);
     });
     doc.text("--------------------------------------------------");
     doc.moveDown();
-    doc.fontSize(14).text(`Total Amount: ₹${order.totalAmount}`, { bold: true });
 
-    // End Stream
+    const total = order.totalPrice || order.grandTotal || 0;
+    doc.fontSize(14).text(`Total Amount: ₹${total}`, { bold: true });
+
     doc.end();
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to generate PDF" });
+    console.error("PDF Generation Error:", error);
+    res.status(500).json({ message: "Failed to generate PDF invoice" });
   }
 };
