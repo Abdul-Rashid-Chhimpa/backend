@@ -183,3 +183,26 @@ exports.downloadOrderPDF = async (req, res) => {
     res.status(500).json({ message: "Failed to generate PDF invoice" });
   }
 };
+
+
+// User Delete Route / Controller Handler
+export const deleteUserOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Hard delete (findByIdAndDelete) ki jagah Soft Delete kijiye:
+    const updatedOrder = await Order.findByIdAndUpdate(
+      id,
+      { deletedByUser: true },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    res.json({ success: true, message: "Order hidden from user dashboard" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
