@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Order = require("../Models/orderdetails");
 
-// Controllers import karein (path aur casing exact honi chahiye)
+// Controllers import
 const {
   getAllOrders,
   getOrderById,
@@ -50,8 +50,7 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// ================= GET ALL ORDERS (MAIN ROUTE FIX FOR BILLS) =================
-// Ye Dono Routes Rakh Diye Hain Taaki Frontend /api/orders aur /api/orders/all dono par kaam kare
+// GET ALL ORDERS FOR ADMIN (Returns ALL records including soft deleted)
 router.get("/", getAllOrders || (async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 });
@@ -76,10 +75,36 @@ router.get("/:orderId/pdf", downloadOrderPDF);
 // GET SINGLE ORDER BY ID
 router.get("/:id", getOrderById);
 
-// UPDATE STATUS (Stock decrement/increment)
+// UPDATE STATUS
 router.put("/:id", updateOrderStatus);
 
-// DELETE ORDER (Both /:id and /delete/:id paths)
+// ================= DELETE LOGIC FIX =================
+
+// 1. USER SOFT DELETE ROUTE (Hides bill from user screen, keeps in Admin database)
+router.put("/user-delete/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedOrder = await Order.findByIdAndUpdate(
+      id,
+      { deletedByUser: true },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Order hidden from user dashboard",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 2. ADMIN HARD DELETE ROUTE (Removes record completely)
 router.delete("/:id", deleteOrder);
 router.delete("/delete/:id", deleteOrder);
 
