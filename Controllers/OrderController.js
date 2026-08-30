@@ -186,7 +186,7 @@ exports.downloadOrderPDF = async (req, res) => {
 
 
 // User Delete Route / Controller Handler
-export const deleteUserOrder = async (req, res) => {
+exports.deleteUserOrder = async (req, res) => {
   try {
     const { id } = req.params;
 
