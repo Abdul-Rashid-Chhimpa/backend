@@ -2,17 +2,18 @@ const express = require("express");
 const router = express.Router();
 const Order = require("../Models/orderdetails");
 
-// Import controllers
+// Controllers import karein (path aur casing exact honi chahiye)
 const {
+  getAllOrders,
+  getOrderById,
   updateOrderStatus,
   deleteOrder,
-} = require("../Controllers/OrderController"); // Ensure path to your controller file is correct
+  downloadOrderPDF,
+} = require("../Controllers/OrderController");
 
 // CREATE ORDER
 router.post("/create", async (req, res) => {
   try {
-    console.log(req.body);
-
     const { userId, customerName, items, totalAmount } = req.body;
 
     if (
@@ -41,8 +42,7 @@ router.post("/create", async (req, res) => {
       order,
     });
   } catch (error) {
-    console.error(error);
-
+    console.error("Create Order Error:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -50,57 +50,37 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// GET ALL ORDERS (ADMIN PANEL)
+// ================= GET ALL ORDERS (MAIN ROUTE FIX FOR BILLS) =================
+// Ye Dono Routes Rakh Diye Hain Taaki Frontend /api/orders aur /api/orders/all dono par kaam kare
+router.get("/", getAllOrders || (async (req, res) => {
+  try {
+    const orders = await Order.find().sort({ createdAt: -1 });
+    res.json({ success: true, orders });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}));
+
 router.get("/all", async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      orders,
-    });
+    res.json({ success: true, orders });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// UPDATE STATUS (Stock decrement/increment logic ke saath)
+// GET SINGLE ORDER PDF INVOICE
+router.get("/:orderId/pdf", downloadOrderPDF);
+
+// GET SINGLE ORDER BY ID
+router.get("/:id", getOrderById);
+
+// UPDATE STATUS (Stock decrement/increment)
 router.put("/:id", updateOrderStatus);
 
-// DELETE ORDER (Permanent delete route)
+// DELETE ORDER (Both /:id and /delete/:id paths)
 router.delete("/:id", deleteOrder);
-
-// Express Route (e.g., /api/orders/delete/:id)
-router.delete("/delete/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // MongoDB Mongoose Delete Query
-    const deletedOrder = await Order.findByIdAndDelete(id);
-
-    if (!deletedOrder) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found in database",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Order deleted successfully",
-    });
-  } catch (error) {
-    console.error("Delete Order Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server Error: Unable to delete order",
-      error: error.message,
-    });
-  }
-});
+router.delete("/delete/:id", deleteOrder);
 
 module.exports = router;
