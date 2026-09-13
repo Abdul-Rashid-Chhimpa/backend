@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
+
 const fs = require("fs");
 const path = require("path");
 
@@ -12,6 +13,8 @@ const userRoutes = require("./Routers/userRoutes");
 const settingsRoutes = require("./Routers/settingsRoutes");
 const categoryRoutes = require("./Routers/categoryRoutes");
 const analyticsRoutes = require("./Routers/analyticsRoutes");
+const paymentRoutes = require("./Routers/paymentRoutes"); // 1. Added Payment Route
+
 // Upload Folder
 if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
@@ -41,9 +44,9 @@ app.use("/api", userRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api", settingsRoutes);
 app.use("/api", categoryRoutes);
-
-
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/payments", paymentRoutes); // 2. Mounted Payment Route
+
 // MongoDB
 mongoose
   .connect(process.env.MONGO_URI)
