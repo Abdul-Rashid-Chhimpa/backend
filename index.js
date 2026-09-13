@@ -16,6 +16,7 @@ const categoryRoutes = require("./Routers/categoryRoutes");
 const analyticsRoutes = require("./Routers/analyticsRoutes");
 const paymentRoutes = require("./Routers/paymentRoutes"); // 1. Added Payment Route
 
+
 // Upload Folder
 if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
