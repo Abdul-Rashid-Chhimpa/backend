@@ -43,18 +43,11 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
-    status: {
-      type: String,
-      enum: [
-        "Pending",
-        "Confirmed", // Added Confirmed status
-        "Processing",
-        "Shipped",
-        "Delivered",
-        "Cancelled",
-      ],
-      default: "Pending",
-    },
+  status: {
+    type: String,
+    enum: ["Pending", "Order Confirmed", "Shipped", "Delivered", "Cancelled"], // Add "Order Confirmed" here
+    default: "Pending",
+  },
 
     // User soft-delete tracking flag
     deletedByUser: {
