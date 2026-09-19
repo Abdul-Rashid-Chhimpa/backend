@@ -66,37 +66,54 @@ const productSchema = new mongoose.Schema(
       min: [0, "GST cannot be negative"],
       max: [100, "GST percentage cannot exceed 100"],
     },
-    
-    // 1. DELIVERY CHARGE FIELD ADDED
-// ProductSchema mein delivery ko object structure dein
-delivery: {
-  charge: {
-    type: Number,
-    default: 150,
-    min: [0, "Delivery charge cannot be negative"],
-  },
-  time: {
-    type: String,
-    default: "3-5 business days",
-    trim: true,
-  },
-},
 
-    // 2. PAYMENT METHODS FIELD ADDED
-   paymentMethods: {
-  type: [String],
-  enum: [
-    "Cash on Delivery", 
-    "UPI / Online Payment", 
-    "Credit / Debit Card", 
-    "Net Banking",
-    "upi", 
-    "card", 
-    "cod", 
-    "netbanking"
-  ],
-  default: ["Cash on Delivery", "UPI / Online Payment"],
-},
+    // --- OFFERS & DISCOUNTS ---
+    discountPercent: {
+      type: Number,
+      default: 0,
+      min: [0, "Discount percentage cannot be negative"],
+      max: [100, "Discount percentage cannot exceed 100"],
+    },
+    discountNote: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // --- BADGE STATUS ---
+    isNewProduct: {
+      type: Boolean,
+      default: true,
+    },
+
+    // --- DELIVERY SETTINGS ---
+    delivery: {
+      minQtyForFreeDelivery: {
+        type: Number,
+        default: 0,
+        min: [0, "Minimum quantity cannot be negative"],
+      },
+      standardDeliveryCharge: {
+        type: Number,
+        default: 0,
+        min: [0, "Delivery charge cannot be negative"],
+      },
+      deliveryNote: {
+        type: String,
+        default: "Free delivery on qualified orders!",
+        trim: true,
+      },
+    },
+
+    // --- PAYMENT METHODS ---
+    paymentMethods: {
+      cod: { type: Boolean, default: true },
+      phonepe: { type: Boolean, default: true },
+      gpay: { type: Boolean, default: true },
+      paytm: { type: Boolean, default: true },
+      card: { type: Boolean, default: true },
+      netbanking: { type: Boolean, default: true },
+    },
 
     pricing: {
       type: [pricingSchema],
