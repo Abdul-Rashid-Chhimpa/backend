@@ -47,6 +47,7 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: [
         "Pending",
+        "Confirmed", // Added Confirmed status
         "Processing",
         "Shipped",
         "Delivered",
@@ -54,13 +55,21 @@ const orderSchema = new mongoose.Schema(
       ],
       default: "Pending",
     },
+
+    // User soft-delete tracking flag
+    deletedByUser: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Optional: Confirmation timestamp track karne ke liye
+    confirmedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model(
-  "Order",
-  orderSchema
-);
+module.exports = mongoose.model("Order", orderSchema);
