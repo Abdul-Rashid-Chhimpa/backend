@@ -4,7 +4,7 @@ const Product = require("../Models/productdb");
 const upload = require("../Middelware/upload");
 
 // Safe Helper for Parsing JSON (Handles strings, arrays, objects)
-const parseJSON = (data, fallback = []) => {
+const parseJSON = (data, fallback = {}) => {
   if (data === undefined || data === null) return fallback;
   if (typeof data === "object") return data;
   try {
@@ -17,20 +17,23 @@ const parseJSON = (data, fallback = []) => {
 // ======================================
 // ADD PRODUCT
 // ======================================
-// ======================================
-// ADD PRODUCT
-// ======================================
 router.post("/add-product", upload.array("images", 10), async (req, res) => {
   try {
     const pricing = parseJSON(req.body.pricing, []);
-    
-    // Clean JSON parsing for paymentMethods
-    let paymentMethods = parseJSON(
-      req.body.paymentMethods || req.body.payment,
-      {}
-    );
+    const paymentMethods = parseJSON(req.body.paymentMethods, {});
 
-    const delivery = parseJSON(req.body.delivery, req.body.delivery || "");
+    // Delivery structure mapping
+    let delivery = {};
+    if (req.body.delivery) {
+      delivery = parseJSON(req.body.delivery, {});
+    } else {
+      delivery = {
+        minQtyForFreeDelivery: Number(req.body.minQtyForFreeDelivery) || 0,
+        standardDeliveryCharge: Number(req.body.standardDeliveryCharge) || 0,
+        deliveryNote: req.body.deliveryNote || "",
+      };
+    }
+
     const imageUrls = req.files ? req.files.map((file) => file.path) : [];
 
     const variantGroupValue =
@@ -41,13 +44,22 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
     const product = await Product.create({
       name: req.body.name,
       brand: req.body.brand || "",
-      category: req.body.category, // 👈 FIXED: Changed from req.category to req.body.category
+      category: req.body.category,
       material: req.body.material || "",
       stock: Number(req.body.stock) || 0,
       description: req.body.description || "",
       size: req.body.size || "",
       weight: req.body.weight || "",
       gst: req.body.gst ? Number(req.body.gst) : 0,
+
+      // --- OFFERS & DISCOUNTS ---
+      discountPercent: Number(req.body.discountPercent) || 0,
+      discountNote: req.body.discountNote || "",
+
+      // --- BADGE TAG ---
+      isNewProduct:
+        req.body.isNewProduct === true || req.body.isNewProduct === "true",
+
       delivery: delivery,
       paymentMethods: paymentMethods,
       pricing: pricing,
@@ -81,7 +93,7 @@ router.get("/", async (req, res) => {
 
     const products = await Product.find(filter)
       .select(
-        "name price images category stock brand material offer pricing variantGroup description size weight gst delivery paymentMethods payment"
+        "name price images category stock brand material pricing variantGroup description size weight gst delivery paymentMethods discountPercent discountNote isNewProduct"
       )
       .sort({ createdAt: -1 })
       .lean()
@@ -130,7 +142,6 @@ router.get("/:id", async (req, res) => {
 // ======================================
 // UPDATE PRODUCT
 // ======================================
-// ================= UPDATE PRODUCT ROUTE =================
 router.put("/:id", upload.array("images", 10), async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -163,33 +174,44 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
     if (req.body.weight !== undefined) updateData.weight = req.body.weight;
     if (req.body.gst !== undefined) updateData.gst = Number(req.body.gst) || 0;
 
-    // FIX: Unified Delivery parsing
+    // Discount & Badge fields
+    if (req.body.discountPercent !== undefined) {
+      updateData.discountPercent = Number(req.body.discountPercent) || 0;
+    }
+    if (req.body.discountNote !== undefined) {
+      updateData.discountNote = req.body.discountNote;
+    }
+    if (req.body.isNewProduct !== undefined) {
+      updateData.isNewProduct =
+        req.body.isNewProduct === true || req.body.isNewProduct === "true";
+    }
+
+    // Delivery object handling
     if (req.body.delivery) {
-      updateData.delivery = parseJSON(req.body.delivery, req.body.delivery);
-    } else if (req.body.deliveryCharge !== undefined || req.body.deliveryTime !== undefined) {
+      updateData.delivery = parseJSON(req.body.delivery, {});
+    } else if (
+      req.body.minQtyForFreeDelivery !== undefined ||
+      req.body.standardDeliveryCharge !== undefined ||
+      req.body.deliveryNote !== undefined
+    ) {
       updateData.delivery = {
-        charge: Number(req.body.deliveryCharge) || 0,
-        time: req.body.deliveryTime || "",
+        minQtyForFreeDelivery: Number(req.body.minQtyForFreeDelivery) || 0,
+        standardDeliveryCharge: Number(req.body.standardDeliveryCharge) || 0,
+        deliveryNote: req.body.deliveryNote || "",
       };
     }
-    
-    // Also save flat fields if your Mongoose schema uses them
-    if (req.body.deliveryCharge !== undefined) updateData.deliveryCharge = Number(req.body.deliveryCharge) || 0;
-    if (req.body.deliveryTime !== undefined) updateData.deliveryTime = req.body.deliveryTime;
 
-    // FIX: Payment Methods fallback handling
-    if (req.body.paymentMethods !== undefined || req.body.payment !== undefined) {
-      const rawPayment = req.body.paymentMethods ?? req.body.payment;
-      const parsedPayment = parseJSON(rawPayment, []);
-      updateData.paymentMethods = parsedPayment;
-      updateData.payment = parsedPayment;
+    // Payment Methods handling
+    if (req.body.paymentMethods !== undefined) {
+      updateData.paymentMethods = parseJSON(req.body.paymentMethods, {});
     }
 
+    // Pricing array parsing
     if (req.body.pricing) {
       updateData.pricing = parseJSON(req.body.pricing, []);
     }
 
-    // Images Handling
+    // Image handling logic
     let images = [];
     if (req.body.existingImages) {
       images = parseJSON(req.body.existingImages, []);
@@ -233,7 +255,9 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       message: error.message,
     });
   }
-});// ======================================
+});
+
+// ======================================
 // DELETE PRODUCT
 // ======================================
 router.delete("/:id", async (req, res) => {
