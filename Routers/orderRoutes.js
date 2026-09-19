@@ -11,8 +11,9 @@ const {
   downloadOrderPDF,
 } = require("../Controllers/OrderController");
 
+// ======================================================
 // CREATE ORDER
-
+// ======================================================
 router.post("/create", async (req, res) => {
   try {
     const { userId, customerName, items, totalAmount } = req.body;
@@ -35,6 +36,8 @@ router.post("/create", async (req, res) => {
       customerName,
       items,
       totalAmount,
+      status: "Pending", // Default initial status
+      deletedByUser: false,
     });
 
     res.status(201).json({
@@ -51,19 +54,79 @@ router.post("/create", async (req, res) => {
   }
 });
 
+// ======================================================
+// CONFIRM ORDER BY USER (Unlock Bill & Update Status)
+// ======================================================
+router.put("/confirm/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Order status update to "Confirmed" and ensure deletedByUser is false
+    const updatedOrder = await Order.findByIdAndUpdate(
+      id,
+      {
+        status: "Confirmed",
+        deletedByUser: false, // Ensures bill is visible on user dashboard
+        confirmedAt: new Date(),
+      },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Order confirmed successfully and bill unlocked",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Confirm Order Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ======================================================
 // GET ALL ORDERS FOR ADMIN (Returns ALL records including soft deleted)
-router.get("/", getAllOrders || (async (req, res) => {
+// ======================================================
+router.get(
+  "/",
+  getAllOrders ||
+    (async (req, res) => {
+      try {
+        const orders = await Order.find().sort({ createdAt: -1 });
+        res.json({ success: true, orders });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    })
+);
+
+router.get("/all", async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 });
     res.json({ success: true, orders });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
-}));
+});
 
-router.get("/all", async (req, res) => {
+// GET USER SPECIFIC ACTIVE ORDERS (Filters out soft deleted ones)
+router.get("/user/:userId", async (req, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
+    const { userId } = req.params;
+    const orders = await Order.find({
+      userId,
+      deletedByUser: { $ne: true },
+    }).sort({ createdAt: -1 });
+
     res.json({ success: true, orders });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -76,10 +139,12 @@ router.get("/:orderId/pdf", downloadOrderPDF);
 // GET SINGLE ORDER BY ID
 router.get("/:id", getOrderById);
 
-// UPDATE STATUS
+// UPDATE STATUS (General/Admin status update)
 router.put("/:id", updateOrderStatus);
 
-// ================= DELETE LOGIC FIX =================
+// ======================================================
+// DELETE LOGIC
+// ======================================================
 
 // 1. USER SOFT DELETE ROUTE (Hides bill from user screen, keeps in Admin database)
 router.put("/user-delete/:id", async (req, res) => {
@@ -92,7 +157,9 @@ router.put("/user-delete/:id", async (req, res) => {
     );
 
     if (!updatedOrder) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
 
     res.json({
