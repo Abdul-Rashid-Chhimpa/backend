@@ -43,9 +43,9 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
-  status: {
+ status: {
     type: String,
-    enum: ["Pending", "Order Confirmed", "Shipped", "Delivered", "Cancelled"], // Add "Order Confirmed" here
+    enum: ["Pending", "Order Confirmed", "Confirmed", "Shipped", "Delivered", "Cancelled"], // Add the missing value here
     default: "Pending",
   },
 
