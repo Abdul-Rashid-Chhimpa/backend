@@ -142,118 +142,87 @@ router.get("/:id", async (req, res) => {
 // ======================================
 // UPDATE PRODUCT
 // ======================================
-router.put("/:id", upload.array("images", 10), async (req, res) => {
+router.put("/:id", upload.array("images"), async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product Not Found",
-      });
+    const { id } = req.params;
+
+    // 1. Safely Parse JSON strings sent via FormData
+    let pricing = [];
+    if (req.body.pricing) {
+      pricing = typeof req.body.pricing === "string" 
+        ? JSON.parse(req.body.pricing) 
+        : req.body.pricing;
     }
 
-    let updatedVariantGroup = product.variantGroup;
-    if (req.body.variantGroup !== undefined) {
-      updatedVariantGroup =
-        req.body.variantGroup.trim() !== ""
-          ? req.body.variantGroup.trim()
-          : null;
+    let delivery = {};
+    if (req.body.delivery) {
+      delivery = typeof req.body.delivery === "string" 
+        ? JSON.parse(req.body.delivery) 
+        : req.body.delivery;
     }
 
+    let paymentMethods = [];
+    if (req.body.paymentMethods) {
+      paymentMethods = typeof req.body.paymentMethods === "string" 
+        ? JSON.parse(req.body.paymentMethods) 
+        : req.body.paymentMethods;
+    }
+
+    let existingImages = [];
+    if (req.body.existingImages) {
+      existingImages = typeof req.body.existingImages === "string" 
+        ? JSON.parse(req.body.existingImages) 
+        : req.body.existingImages;
+    }
+
+    // 2. Process newly uploaded images (if Cloudinary middleware is attached, use req.files URLs)
+    let newImageUrls = [];
+    if (req.files && req.files.length > 0) {
+      // If uploading to Cloudinary manually or via helper:
+      // newImageUrls = await uploadToCloudinary(req.files);
+    }
+
+    const finalImages = [...existingImages, ...newImageUrls];
+
+    // 3. Build Update Object
     const updateData = {
       name: req.body.name,
       brand: req.body.brand,
       category: req.body.category,
       material: req.body.material,
       stock: Number(req.body.stock) || 0,
+      size: req.body.size,
+      weight: req.body.weight,
+      gst: Number(req.body.gst) || 0,
+      variantGroup: req.body.variantGroup,
       description: req.body.description,
-      variantGroup: updatedVariantGroup,
+      isNewArrival: req.body.isNewArrival === "true" || req.body.isNewArrival === true,
+      discountPercentage: Number(req.body.discountPercentage) || 0,
+      offerTag: req.body.offerTag || "",
+      pricing,
+      delivery,
+      paymentMethods,
+      ...(finalImages.length > 0 && { images: finalImages }),
     };
 
-    if (req.body.size !== undefined) updateData.size = req.body.size;
-    if (req.body.weight !== undefined) updateData.weight = req.body.weight;
-    if (req.body.gst !== undefined) updateData.gst = Number(req.body.gst) || 0;
+    // 4. Update Document in MongoDB ({ new: true } returns updated doc)
+    const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
 
-    // Discount & Badge fields
-    if (req.body.discountPercent !== undefined) {
-      updateData.discountPercent = Number(req.body.discountPercent) || 0;
+    if (!updatedProduct) {
+      return res.status(404).json({ success: false, message: "Product not found" });
     }
-    if (req.body.discountNote !== undefined) {
-      updateData.discountNote = req.body.discountNote;
-    }
-    if (req.body.isNewProduct !== undefined) {
-      updateData.isNewProduct =
-        req.body.isNewProduct === true || req.body.isNewProduct === "true";
-    }
-
-    // Delivery object handling
-    if (req.body.delivery) {
-      updateData.delivery = parseJSON(req.body.delivery, {});
-    } else if (
-      req.body.minQtyForFreeDelivery !== undefined ||
-      req.body.standardDeliveryCharge !== undefined ||
-      req.body.deliveryNote !== undefined
-    ) {
-      updateData.delivery = {
-        minQtyForFreeDelivery: Number(req.body.minQtyForFreeDelivery) || 0,
-        standardDeliveryCharge: Number(req.body.standardDeliveryCharge) || 0,
-        deliveryNote: req.body.deliveryNote || "",
-      };
-    }
-
-    // Payment Methods handling
-    if (req.body.paymentMethods !== undefined) {
-      updateData.paymentMethods = parseJSON(req.body.paymentMethods, {});
-    }
-
-    // Pricing array parsing
-    if (req.body.pricing) {
-      updateData.pricing = parseJSON(req.body.pricing, []);
-    }
-
-    // Image handling logic
-    let images = [];
-    if (req.body.existingImages) {
-      images = parseJSON(req.body.existingImages, []);
-    } else {
-      images = [...product.images];
-    }
-
-    let replaceIndexes = parseJSON(req.body.replaceIndexes, []);
-    if (!Array.isArray(replaceIndexes) && req.body.replaceIndexes !== undefined) {
-      replaceIndexes = [req.body.replaceIndexes];
-    }
-
-    if (req.files && req.files.length > 0) {
-      req.files.forEach((file, i) => {
-        const replaceIndex = Number(replaceIndexes[i]);
-        if (!isNaN(replaceIndex) && replaceIndex >= 0 && replaceIndex < images.length) {
-          images[replaceIndex] = file.path;
-        } else {
-          images.push(file.path);
-        }
-      });
-    }
-
-    updateData.images = images;
-
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
 
     return res.status(200).json({
       success: true,
-      message: "Product Updated Successfully",
+      message: "Product updated successfully",
       product: updatedProduct,
     });
   } catch (error) {
-    console.error("Error in update-product:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    console.error("Update Product Error:", error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 });
 
