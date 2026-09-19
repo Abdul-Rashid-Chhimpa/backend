@@ -5,7 +5,7 @@ const upload = require("../Middelware/upload");
 
 // Safe Helper for Parsing JSON (Handles strings, arrays, objects)
 const parseJSON = (data, fallback = {}) => {
-  if (data === undefined || data === null) return fallback;
+  if (data === undefined || data === null || data === "") return fallback;
   if (typeof data === "object") return data;
   try {
     return JSON.parse(data);
@@ -20,7 +20,7 @@ const parseJSON = (data, fallback = {}) => {
 router.post("/add-product", upload.array("images", 10), async (req, res) => {
   try {
     const pricing = parseJSON(req.body.pricing, []);
-    const paymentMethods = parseJSON(req.body.paymentMethods, {});
+    const paymentMethods = parseJSON(req.body.paymentMethods, []);
 
     // Delivery structure mapping
     let delivery = {};
@@ -142,70 +142,53 @@ router.get("/:id", async (req, res) => {
 // ======================================
 // UPDATE PRODUCT
 // ======================================
-router.put("/:id", upload.array("images"), async (req, res) => {
+router.put("/:id", upload.array("images", 10), async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 1. Safely Parse JSON strings sent via FormData
-    let pricing = [];
-    if (req.body.pricing) {
-      pricing = typeof req.body.pricing === "string" 
-        ? JSON.parse(req.body.pricing) 
-        : req.body.pricing;
-    }
+    // 1. Safely Parse JSON strings sent via FormData using parseJSON
+    const pricing = parseJSON(req.body.pricing, []);
+    const delivery = parseJSON(req.body.delivery, {});
+    const paymentMethods = parseJSON(req.body.paymentMethods, []);
+    const existingImages = parseJSON(req.body.existingImages, []);
 
-    let delivery = {};
-    if (req.body.delivery) {
-      delivery = typeof req.body.delivery === "string" 
-        ? JSON.parse(req.body.delivery) 
-        : req.body.delivery;
-    }
-
-    let paymentMethods = [];
-    if (req.body.paymentMethods) {
-      paymentMethods = typeof req.body.paymentMethods === "string" 
-        ? JSON.parse(req.body.paymentMethods) 
-        : req.body.paymentMethods;
-    }
-
-    let existingImages = [];
-    if (req.body.existingImages) {
-      existingImages = typeof req.body.existingImages === "string" 
-        ? JSON.parse(req.body.existingImages) 
-        : req.body.existingImages;
-    }
-
-    // 2. Process newly uploaded images (if Cloudinary middleware is attached, use req.files URLs)
-    let newImageUrls = [];
-    if (req.files && req.files.length > 0) {
-      // If uploading to Cloudinary manually or via helper:
-      // newImageUrls = await uploadToCloudinary(req.files);
-    }
+    // 2. Process newly uploaded image file paths from multer
+    const newImageUrls = req.files ? req.files.map((file) => file.path) : [];
 
     const finalImages = [...existingImages, ...newImageUrls];
 
-    // 3. Build Update Object
+    // 3. Build Update Object with matching field names
     const updateData = {
       name: req.body.name,
-      brand: req.body.brand,
+      brand: req.body.brand || "",
       category: req.body.category,
-      material: req.body.material,
+      material: req.body.material || "",
       stock: Number(req.body.stock) || 0,
-      size: req.body.size,
-      weight: req.body.weight,
-      gst: Number(req.body.gst) || 0,
-      variantGroup: req.body.variantGroup,
-      description: req.body.description,
-      isNewArrival: req.body.isNewArrival === "true" || req.body.isNewArrival === true,
-      discountPercentage: Number(req.body.discountPercentage) || 0,
-      offerTag: req.body.offerTag || "",
+      size: req.body.size || "",
+      weight: req.body.weight || "",
+      gst: req.body.gst ? Number(req.body.gst) : 0,
+      variantGroup: req.body.variantGroup || null,
+      description: req.body.description || "",
+
+      // --- MATCHED WITH MONGODB SCHEMA ---
+      discountPercent: Number(req.body.discountPercent || req.body.discountPercentage) || 0,
+      discountNote: req.body.discountNote || req.body.offerTag || "",
+      isNewProduct:
+        req.body.isNewProduct === true ||
+        req.body.isNewProduct === "true" ||
+        req.body.isNewArrival === true ||
+        req.body.isNewArrival === "true",
+
       pricing,
       delivery,
       paymentMethods,
-      ...(finalImages.length > 0 && { images: finalImages }),
     };
 
-    // 4. Update Document in MongoDB ({ new: true } returns updated doc)
+    if (finalImages.length > 0) {
+      updateData.images = finalImages;
+    }
+
+    // 4. Update Document in MongoDB
     const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
