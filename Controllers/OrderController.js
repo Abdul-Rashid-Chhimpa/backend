@@ -2,7 +2,7 @@ const Order = require("../Models/orderdetails");
 const Product = require("../Models/productdb");
 const PDFDocument = require("pdfkit");
 
-// ================= 1. GET ALL ORDERS / BILLS (MISSING THA) =================
+// ================= 1. GET ALL ORDERS / BILLS =================
 // GET /api/orders
 exports.getAllOrders = async (req, res) => {
   try {
@@ -29,9 +29,14 @@ exports.getAllOrders = async (req, res) => {
 // GET /api/orders/:id
 exports.getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id).populate("user", "name email phone");
+    const order = await Order.findById(req.params.id).populate(
+      "user",
+      "name email phone"
+    );
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
     return res.status(200).json({ success: true, order });
   } catch (error) {
@@ -39,16 +44,51 @@ exports.getOrderById = async (req, res) => {
   }
 };
 
-// ================= 3. UPDATE ORDER STATUS =================
+// ================= 3. CONFIRM ORDER (UNLOCK BILL FOR USER) =================
+// PUT /api/orders/confirm/:id
+exports.confirmOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+      id,
+      {
+        status: "Confirmed",
+        deletedByUser: false, // Ensures bill unlocks on user dashboard
+        confirmedAt: new Date(),
+      },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Order confirmed successfully and bill unlocked",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Confirm Order Controller Error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ================= 4. UPDATE ORDER STATUS =================
 // PUT /api/orders/:id
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // 'Pending', 'Shipped', 'Delivered', 'Cancelled'
+    const { status } = req.body; // 'Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'
 
     const order = await Order.findById(id);
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
 
     const prevStatus = order.status;
@@ -62,7 +102,8 @@ exports.updateOrderStatus = async (req, res) => {
     ) {
       const items = order.items || order.orderItems || [];
       for (const item of items) {
-        const productId = item.id || item.productId || item.product || item._id;
+        const productId =
+          item.id || item.productId || item.product || item._id;
         const qty = Number(item.quantity || item.qty || 1);
 
         if (productId) {
@@ -80,7 +121,8 @@ exports.updateOrderStatus = async (req, res) => {
     ) {
       const items = order.items || order.orderItems || [];
       for (const item of items) {
-        const productId = item.id || item.productId || item.product || item._id;
+        const productId =
+          item.id || item.productId || item.product || item._id;
         const qty = Number(item.quantity || item.qty || 1);
 
         if (productId) {
@@ -103,7 +145,7 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-// ================= 4. DELETE ORDER =================
+// ================= 5. DELETE ORDER (ADMIN HARD DELETE) =================
 // DELETE /api/orders/:id
 exports.deleteOrder = async (req, res) => {
   try {
@@ -132,17 +174,42 @@ exports.deleteOrder = async (req, res) => {
   }
 };
 
-// ================= 5. DOWNLOAD PDF INVOICE (REAL DATA FIX) =================
+// ================= 6. USER SOFT DELETE ORDER =================
+// PUT /api/orders/user-delete/:id
+exports.deleteUserOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+      id,
+      { deletedByUser: true },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
+    }
+
+    res.json({ success: true, message: "Order hidden from user dashboard" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ================= 7. DOWNLOAD PDF INVOICE =================
 // GET /api/orders/:orderId/pdf
 exports.downloadOrderPDF = async (req, res) => {
   try {
     const { orderId } = req.params;
 
-    // Real DB order fetch
     const order = await Order.findById(orderId).populate("user", "name email");
 
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found for PDF" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found for PDF" });
     }
 
     const doc = new PDFDocument({ margin: 30 });
@@ -159,7 +226,15 @@ exports.downloadOrderPDF = async (req, res) => {
     doc.fontSize(20).text("TAX INVOICE", { align: "center" });
     doc.moveDown();
     doc.fontSize(12).text(`Order ID: #${order._id}`);
-    doc.text(`Customer Name: ${order.user?.name || order.shippingAddress?.fullName || "Guest Customer"}`);
+    doc.text(`Status: ${order.status || "Pending"}`);
+    doc.text(
+      `Customer Name: ${
+        order.customerName ||
+        order.user?.name ||
+        order.shippingAddress?.fullName ||
+        "Guest Customer"
+      }`
+    );
     doc.text(`Payment Method: ${order.paymentMethod || "COD"}`);
     doc.moveDown();
 
@@ -174,35 +249,13 @@ exports.downloadOrderPDF = async (req, res) => {
     doc.text("--------------------------------------------------");
     doc.moveDown();
 
-    const total = order.totalPrice || order.grandTotal || 0;
+    const total =
+      order.totalAmount || order.totalPrice || order.grandTotal || 0;
     doc.fontSize(14).text(`Total Amount: ₹${total}`, { bold: true });
 
     doc.end();
   } catch (error) {
     console.error("PDF Generation Error:", error);
     res.status(500).json({ message: "Failed to generate PDF invoice" });
-  }
-};
-
-
-// User Delete Route / Controller Handler
-exports.deleteUserOrder = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Hard delete (findByIdAndDelete) ki jagah Soft Delete kijiye:
-    const updatedOrder = await Order.findByIdAndUpdate(
-      id,
-      { deletedByUser: true },
-      { new: true }
-    );
-
-    if (!updatedOrder) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-
-    res.json({ success: true, message: "Order hidden from user dashboard" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
   }
 };
