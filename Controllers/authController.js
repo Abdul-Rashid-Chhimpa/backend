@@ -63,6 +63,7 @@ exports.register = async (req, res) => {
 };
 
 // ====================== LOGIN (WITH 1-HOUR LOCKOUT) ======================
+// ====================== LOGIN (3 WRONG ATTEMPTS = 1 HOUR LOCKOUT) ======================
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -84,45 +85,53 @@ exports.login = async (req, res) => {
       });
     }
 
-    // 1. Check if account is currently locked
+    // 1. Check if user is manually blocked by Admin
+    if (user.status === "blocked") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked by an administrator.",
+      });
+    }
+
+    // 2. Check if account is currently locked due to failed attempts
     if (user.lockUntil && user.lockUntil > Date.now()) {
       const remainingMinutes = Math.ceil(
         (user.lockUntil - Date.now()) / (1000 * 60)
       );
       return res.status(429).json({
         success: false,
-        message: `Account is locked due to too many failed attempts. Try again in ${remainingMinutes} minute(s).`,
+        message: `Account is locked due to 3 failed attempts. Try again in ${remainingMinutes} minute(s).`,
       });
     }
 
-    // Compare Password
+    // 3. Compare Password
     const match = await bcrypt.compare(password, user.password);
 
     if (!match) {
-      // Increment login attempts
+      // Increment login attempts counter
       user.loginAttempts = (user.loginAttempts || 0) + 1;
 
-      // Lock account for 1 hour after 5 failed attempts
-      if (user.loginAttempts >= 5) {
-        user.lockUntil = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+      // Lock account for 1 hour after 3 failed attempts
+      if (user.loginAttempts >= 3) {
+        user.lockUntil = new Date(Date.now() + 60 * 60 * 1000); // 1 Hour Lockout
         await user.save();
         return res.status(429).json({
           success: false,
           message:
-            "Too many failed login attempts. Your account has been locked for 1 hour.",
+            "Too many failed login attempts (3/3). Your account is locked for 1 hour.",
         });
       }
 
       await user.save();
 
-      const attemptsLeft = 5 - user.loginAttempts;
+      const attemptsLeft = 3 - user.loginAttempts;
       return res.status(400).json({
         success: false,
         message: `Invalid Password. You have ${attemptsLeft} attempt(s) remaining before lockout.`,
       });
     }
 
-    // Successful Login: Reset attempts and lock fields
+    // 4. Successful Login: Reset attempts and clear lock fields
     user.loginAttempts = 0;
     user.lockUntil = undefined;
     await user.save();
@@ -151,7 +160,6 @@ exports.login = async (req, res) => {
     });
   }
 };
-
 // ====================== FORGOT PASSWORD (LOCKED CHECK ADDED) ======================
 exports.forgotPassword = async (req, res) => {
   try {
