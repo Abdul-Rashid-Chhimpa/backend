@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { Resend } = require("resend");
 
-const resend = new Resend(process.env.Key);
+const resend = new Resend(process.env.Email_Key);
 
 
 // ====================== REGISTER ======================
