@@ -1,11 +1,10 @@
-const User = require("../Models/User"); // Single correct import
+const User = require("../Models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { Resend } = require("resend");
 
-const resend = new Resend(process.env.Key);
-
+const resend = new Resend(process.env.Key || process.env.RESEND_API_KEY);
 
 // ====================== REGISTER ======================
 exports.register = async (req, res) => {
@@ -19,8 +18,10 @@ exports.register = async (req, res) => {
       });
     }
 
+    const cleanEmail = email.toLowerCase().trim();
+
     const existingUser = await User.findOne({
-      $or: [{ email: email.toLowerCase() }, { mobile }],
+      $or: [{ email: cleanEmail }, { mobile }],
     });
 
     if (existingUser) {
@@ -35,7 +36,7 @@ exports.register = async (req, res) => {
     const user = await User.create({
       name,
       mobile,
-      email: email.toLowerCase(),
+      email: cleanEmail,
       password: hashedPassword,
     });
 
@@ -65,7 +66,8 @@ exports.login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
       return res.status(404).json({
@@ -120,7 +122,8 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
       return res.status(404).json({
@@ -129,16 +132,18 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
+    // Generate unhashed random token
     const resetToken = crypto.randomBytes(32).toString("hex");
 
+    // Hash token to store in database
     user.resetPasswordToken = crypto
       .createHash("sha256")
       .update(resetToken)
       .digest("hex");
 
-    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 Minutes valid
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
 
-    await user.save({ validateBeforeSave: false });
+    await user.save();
 
     const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
 
@@ -175,8 +180,6 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    console.log("Resend Success Data →", data);
-
     return res.status(200).json({
       success: true,
       message: "Password reset link has been sent to your email",
@@ -203,9 +206,19 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset token is missing",
+      });
+    }
+
+    // Clean and decode token received in URL params
+    const rawToken = decodeURIComponent(token).trim();
+
     const hashedToken = crypto
       .createHash("sha256")
-      .update(token)
+      .update(rawToken)
       .digest("hex");
 
     const user = await User.findOne({
@@ -221,11 +234,10 @@ exports.resetPassword = async (req, res) => {
     }
 
     user.password = await bcrypt.hash(password, 10);
-
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
 
-    await user.save({ validateBeforeSave: false });
+    await user.save();
 
     return res.status(200).json({
       success: true,
