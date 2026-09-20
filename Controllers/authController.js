@@ -62,7 +62,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// ====================== LOGIN ======================
+// ====================== LOGIN (WITH 1-HOUR LOCKOUT) ======================
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -84,14 +84,48 @@ exports.login = async (req, res) => {
       });
     }
 
+    // 1. Check if account is currently locked
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+      const remainingMinutes = Math.ceil(
+        (user.lockUntil - Date.now()) / (1000 * 60)
+      );
+      return res.status(429).json({
+        success: false,
+        message: `Account is locked due to too many failed attempts. Try again in ${remainingMinutes} minute(s).`,
+      });
+    }
+
+    // Compare Password
     const match = await bcrypt.compare(password, user.password);
 
     if (!match) {
+      // Increment login attempts
+      user.loginAttempts = (user.loginAttempts || 0) + 1;
+
+      // Lock account for 1 hour after 5 failed attempts
+      if (user.loginAttempts >= 5) {
+        user.lockUntil = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+        await user.save();
+        return res.status(429).json({
+          success: false,
+          message:
+            "Too many failed login attempts. Your account has been locked for 1 hour.",
+        });
+      }
+
+      await user.save();
+
+      const attemptsLeft = 5 - user.loginAttempts;
       return res.status(400).json({
         success: false,
-        message: "Invalid Password",
+        message: `Invalid Password. You have ${attemptsLeft} attempt(s) remaining before lockout.`,
       });
     }
+
+    // Successful Login: Reset attempts and lock fields
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    await user.save();
 
     const token = jwt.sign(
       {
@@ -118,15 +152,33 @@ exports.login = async (req, res) => {
   }
 };
 
-// ====================== FORGOT PASSWORD ======================
+// ====================== FORGOT PASSWORD (LOCKED CHECK ADDED) ======================
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
     const cleanEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Prevent password reset if account is locked
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+      const remainingMinutes = Math.ceil(
+        (user.lockUntil - Date.now()) / (1000 * 60)
+      );
+      return res.status(429).json({
+        success: false,
+        message: `Account is temporarily locked. Password reset is disabled for ${remainingMinutes} minute(s).`,
+      });
     }
 
     // 1. Plain unhashed token (Sent in Email Link)
@@ -149,13 +201,45 @@ exports.forgotPassword = async (req, res) => {
 
     const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
 
-    // ... email send logic using Resend ...
+    const senderEmail =
+      process.env.NODE_ENV === "production"
+        ? "Pedwal <noreply@pedwal.in>"
+        : "Pedwal <onboarding@resend.dev>";
+
+    const { data, error } = await resend.emails.send({
+      from: senderEmail,
+      to: user.email,
+      subject: "Password Reset - Pedwal",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+          <h2 style="color: #4f46e5;">Reset Your Password</h2>
+          <p>Hello ${user.name},</p>
+          <p>Click the button below to reset your password. This link is valid for <b>15 minutes</b>.</p>
+          
+          <a href="${resetUrl}" 
+             style="display: inline-block; padding: 12px 28px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;">
+            Reset Password
+          </a>
+
+          <p style="color: #666; font-size: 14px;">If you did not request this, please ignore this email.</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error("Resend API Error Detail →", error);
+      return res.status(400).json({
+        success: false,
+        message: `Email sending failed: ${error.message}`,
+      });
+    }
+
     return res.status(200).json({ success: true, message: "Reset link sent!" });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
-// ====================== RESET PASSWORD ======================
+
 // ====================== RESET PASSWORD ======================
 exports.resetPassword = async (req, res) => {
   try {
@@ -197,14 +281,16 @@ exports.resetPassword = async (req, res) => {
     });
 
     if (!user) {
-      // Check if token exists but is expired
-      const expiredUser = await User.findOne({ resetPasswordToken: hashedToken });
-      
+      const expiredUser = await User.findOne({
+        resetPasswordToken: hashedToken,
+      });
+
       if (expiredUser) {
         console.log("❌ Token matched but it has EXPIRED!");
         return res.status(400).json({
           success: false,
-          message: "Reset link has expired (valid for 15 mins only). Please request a new one.",
+          message:
+            "Reset link has expired (valid for 15 mins only). Please request a new one.",
         });
       }
 
@@ -217,10 +303,12 @@ exports.resetPassword = async (req, res) => {
 
     console.log("✅ User matched for reset:", user.email);
 
-    // Save new hashed password & clear reset fields
+    // Save new hashed password, clear reset fields AND clear lockout state
     user.password = await bcrypt.hash(password, 10);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
 
     await user.save();
 
@@ -236,6 +324,7 @@ exports.resetPassword = async (req, res) => {
     });
   }
 };
+
 // ====================== UPDATE PROFILE ======================
 exports.updateProfile = async (req, res) => {
   try {
