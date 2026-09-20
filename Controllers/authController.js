@@ -203,6 +203,7 @@ exports.forgotPassword = async (req, res) => {
 };
 
 // ====================== RESET PASSWORD ======================
+// ====================== RESET PASSWORD ======================
 exports.resetPassword = async (req, res) => {
   try {
     const { token } = req.params;
@@ -218,31 +219,52 @@ exports.resetPassword = async (req, res) => {
     if (!token) {
       return res.status(400).json({
         success: false,
-        message: "Reset token is missing",
+        message: "Reset token is missing in request",
       });
     }
 
-    // Handle URL decoding and whitespace cleaning
-    const cleanToken = decodeURIComponent(token).trim();
+    // Clean received token string
+    const rawToken = decodeURIComponent(token).trim();
 
+    // Generate SHA-256 Hash
     const hashedToken = crypto
       .createHash("sha256")
-      .update(cleanToken)
+      .update(rawToken)
       .digest("hex");
 
+    console.log("------------------ RESET PASSWORD DEBUG ------------------");
+    console.log("1. Raw Token from Params:", rawToken);
+    console.log("2. Generated Hashed Token:", hashedToken);
+    console.log("3. Current System Time (ms):", Date.now());
+
+    // Search user with hash and expiry check
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
       resetPasswordExpire: { $gt: Date.now() },
     });
 
     if (!user) {
+      // Check if token exists but is expired
+      const expiredUser = await User.findOne({ resetPasswordToken: hashedToken });
+      
+      if (expiredUser) {
+        console.log("❌ Token matched but it has EXPIRED!");
+        return res.status(400).json({
+          success: false,
+          message: "Reset link has expired (valid for 15 mins only). Please request a new one.",
+        });
+      }
+
+      console.log("❌ No user found with this token hash!");
       return res.status(400).json({
         success: false,
-        message: "Invalid or expired reset token. Please request a new link.",
+        message: "Invalid reset token. Please request a new link.",
       });
     }
 
-    // Hash new password and clear token fields
+    console.log("✅ User matched for reset:", user.email);
+
+    // Save new hashed password & clear reset fields
     user.password = await bcrypt.hash(password, 10);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
@@ -261,7 +283,6 @@ exports.resetPassword = async (req, res) => {
     });
   }
 };
-
 // ====================== UPDATE PROFILE ======================
 exports.updateProfile = async (req, res) => {
   try {
