@@ -30,6 +30,49 @@ const sanitizeUserIds = (list) => {
 // Normalizes the targeting type to only "all" or "selected"
 const normalizeTargetType = (value) => (value === "selected" ? "selected" : "all");
 
+// Finds the logged-in user's id for the current request.
+// Order: req.user (if you have auth middleware) -> x-user-id header -> ?userId= query.
+// NOTE: header / query values can be faked. For real security use JWT middleware
+// that sets req.user, and this helper will pick it up automatically.
+const getRequestUserId = (req) => {
+  const raw =
+    (req.user && (req.user._id || req.user.id)) ||
+    req.headers["x-user-id"] ||
+    req.query.userId ||
+    "";
+
+  const id = String(raw);
+
+  return mongoose.Types.ObjectId.isValid(id) ? id : "";
+};
+
+// For PUBLIC responses: a "selected users only" discount is visible only to
+// users listed in allowedUserIds. Everyone else gets the normal product (no
+// discount). The allowed user list itself is never sent to the public.
+const applyDiscountVisibility = (product, userId) => {
+  if (!product) return product;
+
+  const allowed = (product.allowedUserIds || []).map((u) =>
+    String(u && typeof u === "object" ? u._id : u)
+  );
+
+  const isTargeted = product.discountTargetType === "selected";
+  const canSee = !isTargeted || (userId !== "" && allowed.includes(userId));
+
+  const result = { ...product };
+
+  if (!canSee) {
+    result.discountPercent = 0;
+    result.discountNote = "";
+  }
+
+  result.hasSpecialDiscount = isTargeted && canSee;
+
+  delete result.allowedUserIds;
+
+  return result;
+};
+
 // Builds the final images array in the right order.
 // - existing: image URLs the admin kept (in order)
 // - uploaded: URLs of newly uploaded files (in upload order)
@@ -166,12 +209,46 @@ router.get("/", async (req, res) => {
       .lean()
       .limit(100);
 
+    // Hide special (selected-users) discounts from users who are not allowed
+    const userId = getRequestUserId(req);
+
+    return res.status(200).json({
+      success: true,
+      products: products.map((p) => applyDiscountVisibility(p, userId)),
+    });
+  } catch (error) {
+    console.error("Error in get-all-products:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ======================================
+// ADMIN: GET ALL PRODUCTS (FULL DATA)
+// ======================================
+// Used by the admin "All products" / edit screen. Returns every field,
+// including discountTargetType and allowedUserIds.
+// IMPORTANT: protect this route with your admin auth middleware, e.g.
+//   router.get("/admin/all", adminAuth, async (req, res) => { ... })
+// This route must stay ABOVE "/:id" so it is not treated as an id.
+router.get("/admin/all", async (req, res) => {
+  try {
+    const products = await Product.find({})
+      .select(
+        "name price images category stock brand material pricing variantGroup description size weight gst delivery paymentMethods discountPercent discountNote discountTargetType allowedUserIds isNewProduct"
+      )
+      .sort({ createdAt: -1 })
+      .lean()
+      .limit(100);
+
     return res.status(200).json({
       success: true,
       products,
     });
   } catch (error) {
-    console.error("Error in get-all-products:", error);
+    console.error("Error in admin-get-all-products:", error);
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -184,9 +261,8 @@ router.get("/", async (req, res) => {
 // ======================================
 router.get("/:id", async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id)
-      .populate("allowedUserIds", "name email phone")
-      .lean();
+    // No populate here: user names / emails / phones must never reach the public
+    const product = await Product.findById(req.params.id).lean();
 
     if (!product) {
       return res.status(404).json({
@@ -197,7 +273,7 @@ router.get("/:id", async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      product,
+      product: applyDiscountVisibility(product, getRequestUserId(req)),
     });
   } catch (error) {
     console.error("Error in get-single-product:", error);
