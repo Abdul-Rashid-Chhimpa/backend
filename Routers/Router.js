@@ -16,12 +16,11 @@ const parseJSON = (data, fallback = {}) => {
 };
 
 // Keeps only valid, unique MongoDB ObjectIds.
-// Accepts ["id1"] or [{ _id: "id1" }] so a bad value can never cause a CastError (500).
 const sanitizeUserIds = (list) => {
   if (!Array.isArray(list)) return [];
 
   const ids = list
-    .map((u) => String(u && typeof u === "object" ? u._id : u))
+    .map((u) => String(u && typeof u === "object" ? u._id || u.id : u).trim())
     .filter((id) => mongoose.Types.ObjectId.isValid(id));
 
   return Array.from(new Set(ids));
@@ -30,57 +29,65 @@ const sanitizeUserIds = (list) => {
 // Normalizes the targeting type to only "all" or "selected"
 const normalizeTargetType = (value) => (value === "selected" ? "selected" : "all");
 
-// Finds the logged-in user's id for the current request.
-// Order: req.user (if you have auth middleware) -> x-user-id header -> ?userId= query.
-// NOTE: header / query values can be faked. For real security use JWT middleware
-// that sets req.user, and this helper will pick it up automatically.
+// FIXED: Robust User ID Extraction from Request (Headers, Query & Body)
 const getRequestUserId = (req) => {
   const raw =
     (req.user && (req.user._id || req.user.id)) ||
     req.headers["x-user-id"] ||
+    req.headers["user-id"] ||
     req.query.userId ||
+    (req.body && req.body.userId) ||
     "";
 
-  const id = String(raw);
-
+  const id = String(raw).trim();
   return mongoose.Types.ObjectId.isValid(id) ? id : "";
 };
 
-// For PUBLIC responses: a "selected users only" discount is visible only to
-// users listed in allowedUserIds. Everyone else gets the normal product (no
-// discount). The allowed user list itself is never sent to the public.
+// FIXED: Applies correct discount per user (Selected vs Other Users)
 const applyDiscountVisibility = (product, userId) => {
   if (!product) return product;
 
   const allowed = (product.allowedUserIds || []).map((u) =>
-    String(u && typeof u === "object" ? u._id : u)
+    String(u && typeof u === "object" ? u._id || u.id : u).trim()
   );
 
   const isTargeted = product.discountTargetType === "selected";
-  const canSee = !isTargeted || (userId !== "" && allowed.includes(userId));
+  const currentUserIdStr = String(userId).trim();
+
+  // Selected User check
+  const isSelectedUser =
+    isTargeted && currentUserIdStr !== "" && allowed.includes(currentUserIdStr);
 
   const result = { ...product };
 
-  if (!canSee) {
-    // Not a selected user: show the "other users" discount instead (0 = none)
-    result.discountPercent = Number(product.otherUsersDiscountPercent) || 0;
-    result.discountNote = product.otherUsersDiscountNote || "";
+  if (isTargeted) {
+    if (isSelectedUser) {
+      // Selected User gets Special Discount
+      result.discountPercent = Number(product.discountPercent) || 0;
+      result.discountNote = product.discountNote || "";
+      result.hasSpecialDiscount = true;
+    } else {
+      // ALL OTHER USERS (Not Selected) get the "Other Users Discount"
+      result.discountPercent = Number(product.otherUsersDiscountPercent) || 0;
+      result.discountNote = product.otherUsersDiscountNote || "";
+      result.hasSpecialDiscount = false;
+    }
+  } else {
+    // Regular Public Offer (discountTargetType === 'all')
+    result.discountPercent = Number(product.discountPercent) || 0;
+    result.discountNote = product.discountNote || "";
+    result.hasSpecialDiscount = false;
   }
 
+  // Cleanup internal fields before sending response to client
   delete result.otherUsersDiscountPercent;
   delete result.otherUsersDiscountNote;
-
-  result.hasSpecialDiscount = isTargeted && canSee;
-
   delete result.allowedUserIds;
 
   return result;
 };
 
 // Builds the final images array in the right order.
-// - existing: image URLs the admin kept (in order)
-// - uploaded: URLs of newly uploaded files (in upload order)
-// - replaceIndexes: the position each uploaded file should take in the final list
 const buildFinalImages = (existing, uploaded, replaceIndexes) => {
   const total = existing.length + uploaded.length;
   const result = new Array(total).fill(null);
@@ -101,7 +108,6 @@ const buildFinalImages = (existing, uploaded, replaceIndexes) => {
     }
   });
 
-  // Fill remaining slots: kept images first (in order), then any leftover uploads
   const fillers = [...existing, ...leftoverUploads];
   let f = 0;
 
@@ -123,7 +129,6 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
     const paymentMethods = parseJSON(req.body.paymentMethods, []);
     const allowedUserIds = sanitizeUserIds(parseJSON(req.body.allowedUserIds, []));
 
-    // Delivery structure mapping
     let delivery = {};
     if (req.body.delivery) {
       delivery = parseJSON(req.body.delivery, {});
@@ -162,7 +167,7 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
       weight: req.body.weight || "",
       gst: req.body.gst ? Number(req.body.gst) : 0,
 
-      // --- OFFERS & DISCOUNTS ---
+      // --- OFFERS & DISCOUNTS FOR SELECTED USERS ---
       discountPercent: Number(req.body.discountPercent) || 0,
       discountNote: req.body.discountNote || "",
 
@@ -223,12 +228,11 @@ router.get("/", async (req, res) => {
       .lean()
       .limit(100);
 
-    // Hide special (selected-users) discounts from users who are not allowed
     const userId = getRequestUserId(req);
 
     return res.status(200).json({
       success: true,
-      viewerId: userId, // empty string = server did not receive a valid user id
+      viewerId: userId,
       products: products.map((p) => applyDiscountVisibility(p, userId)),
     });
   } catch (error) {
@@ -243,11 +247,6 @@ router.get("/", async (req, res) => {
 // ======================================
 // ADMIN: GET ALL PRODUCTS (FULL DATA)
 // ======================================
-// Used by the admin "All products" / edit screen. Returns every field,
-// including discountTargetType and allowedUserIds.
-// IMPORTANT: protect this route with your admin auth middleware, e.g.
-//   router.get("/admin/all", adminAuth, async (req, res) => { ... })
-// This route must stay ABOVE "/:id" so it is not treated as an id.
 router.get("/admin/all", async (req, res) => {
   try {
     const products = await Product.find({})
@@ -276,7 +275,6 @@ router.get("/admin/all", async (req, res) => {
 // ======================================
 router.get("/:id", async (req, res) => {
   try {
-    // No populate here: user names / emails / phones must never reach the public
     const product = await Product.findById(req.params.id).lean();
 
     if (!product) {
@@ -306,24 +304,20 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 0. Load the current product (needed to merge delivery + validate)
     const currentProduct = await Product.findById(id).select("delivery images").lean();
 
     if (!currentProduct) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    // 1. Safely Parse JSON strings sent via FormData using parseJSON
     const pricing = parseJSON(req.body.pricing, []);
     const incomingDelivery = parseJSON(req.body.delivery, {});
     const paymentMethods = parseJSON(req.body.paymentMethods, []);
     const existingImages = parseJSON(req.body.existingImages, []);
     const allowedUserIds = sanitizeUserIds(parseJSON(req.body.allowedUserIds, []));
 
-    // Merge so older delivery fields (e.g. minQtyForFreeDelivery) are not lost on edit
     const delivery = { ...(currentProduct.delivery || {}), ...incomingDelivery };
 
-    // 2. Process newly uploaded image file paths from multer
     const newImageUrls = req.files ? req.files.map((file) => file.path) : [];
 
     const finalImages = buildFinalImages(
@@ -332,7 +326,6 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       req.body.replaceIndexes
     );
 
-    // 3. Targeted discount validation
     const discountTargetType = normalizeTargetType(req.body.discountTargetType);
 
     if (discountTargetType === "selected" && allowedUserIds.length === 0) {
@@ -342,7 +335,6 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       });
     }
 
-    // 4. Build Update Object with matching field names
     const updateData = {
       name: req.body.name,
       brand: req.body.brand || "",
@@ -358,13 +350,11 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
           : null,
       description: req.body.description || "",
 
-      // --- MATCHED WITH MONGODB SCHEMA ---
       discountPercent: Number(req.body.discountPercent || req.body.discountPercentage) || 0,
       discountNote: req.body.discountNote || req.body.offerTag || "",
       discountTargetType: discountTargetType,
       allowedUserIds: discountTargetType === "selected" ? allowedUserIds : [],
 
-      // --- DISCOUNT SHOWN TO EVERYONE WHO IS NOT SELECTED ---
       otherUsersDiscountPercent:
         discountTargetType === "selected"
           ? Number(req.body.otherUsersDiscountPercent) || 0
@@ -385,8 +375,6 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       paymentMethods,
     };
 
-    // Only touch images when the client actually sent image info.
-    // This also allows removing images (previously deleted images could never be saved).
     const clientSentImageInfo =
       req.body.existingImages !== undefined || newImageUrls.length > 0;
 
@@ -401,7 +389,6 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       updateData.images = finalImages;
     }
 
-    // 5. Update Document in MongoDB
     const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
