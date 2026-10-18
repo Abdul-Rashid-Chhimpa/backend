@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const router = express.Router();
 const Product = require("../Models/productdb");
 const upload = require("../Middelware/upload");
@@ -14,6 +15,58 @@ const parseJSON = (data, fallback = {}) => {
   }
 };
 
+// Keeps only valid, unique MongoDB ObjectIds.
+// Accepts ["id1"] or [{ _id: "id1" }] so a bad value can never cause a CastError (500).
+const sanitizeUserIds = (list) => {
+  if (!Array.isArray(list)) return [];
+
+  const ids = list
+    .map((u) => String(u && typeof u === "object" ? u._id : u))
+    .filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+  return Array.from(new Set(ids));
+};
+
+// Normalizes the targeting type to only "all" or "selected"
+const normalizeTargetType = (value) => (value === "selected" ? "selected" : "all");
+
+// Builds the final images array in the right order.
+// - existing: image URLs the admin kept (in order)
+// - uploaded: URLs of newly uploaded files (in upload order)
+// - replaceIndexes: the position each uploaded file should take in the final list
+const buildFinalImages = (existing, uploaded, replaceIndexes) => {
+  const total = existing.length + uploaded.length;
+  const result = new Array(total).fill(null);
+
+  const indexes = []
+    .concat(replaceIndexes === undefined ? [] : replaceIndexes)
+    .map((n) => Number(n));
+
+  const leftoverUploads = [];
+
+  uploaded.forEach((url, i) => {
+    const pos = indexes[i];
+
+    if (Number.isInteger(pos) && pos >= 0 && pos < total && result[pos] === null) {
+      result[pos] = url;
+    } else {
+      leftoverUploads.push(url);
+    }
+  });
+
+  // Fill remaining slots: kept images first (in order), then any leftover uploads
+  const fillers = [...existing, ...leftoverUploads];
+  let f = 0;
+
+  for (let i = 0; i < total; i++) {
+    if (result[i] === null) {
+      result[i] = fillers[f++];
+    }
+  }
+
+  return result.filter(Boolean);
+};
+
 // ======================================
 // ADD PRODUCT
 // ======================================
@@ -21,7 +74,7 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
   try {
     const pricing = parseJSON(req.body.pricing, []);
     const paymentMethods = parseJSON(req.body.paymentMethods, []);
-    const allowedUserIds = parseJSON(req.body.allowedUserIds, []);
+    const allowedUserIds = sanitizeUserIds(parseJSON(req.body.allowedUserIds, []));
 
     // Delivery structure mapping
     let delivery = {};
@@ -42,7 +95,14 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
         ? req.body.variantGroup.trim()
         : null;
 
-    const discountTargetType = req.body.discountTargetType || "all";
+    const discountTargetType = normalizeTargetType(req.body.discountTargetType);
+
+    if (discountTargetType === "selected" && allowedUserIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select at least one user for targeted discount",
+      });
+    }
 
     const product = await Product.create({
       name: req.body.name,
@@ -155,21 +215,43 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
   try {
     const { id } = req.params;
 
+    // 0. Load the current product (needed to merge delivery + validate)
+    const currentProduct = await Product.findById(id).select("delivery images").lean();
+
+    if (!currentProduct) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
     // 1. Safely Parse JSON strings sent via FormData using parseJSON
     const pricing = parseJSON(req.body.pricing, []);
-    const delivery = parseJSON(req.body.delivery, {});
+    const incomingDelivery = parseJSON(req.body.delivery, {});
     const paymentMethods = parseJSON(req.body.paymentMethods, []);
     const existingImages = parseJSON(req.body.existingImages, []);
-    const allowedUserIds = parseJSON(req.body.allowedUserIds, []);
+    const allowedUserIds = sanitizeUserIds(parseJSON(req.body.allowedUserIds, []));
+
+    // Merge so older delivery fields (e.g. minQtyForFreeDelivery) are not lost on edit
+    const delivery = { ...(currentProduct.delivery || {}), ...incomingDelivery };
 
     // 2. Process newly uploaded image file paths from multer
     const newImageUrls = req.files ? req.files.map((file) => file.path) : [];
 
-    const finalImages = [...existingImages, ...newImageUrls];
+    const finalImages = buildFinalImages(
+      Array.isArray(existingImages) ? existingImages : [],
+      newImageUrls,
+      req.body.replaceIndexes
+    );
 
-    const discountTargetType = req.body.discountTargetType || "all";
+    // 3. Targeted discount validation
+    const discountTargetType = normalizeTargetType(req.body.discountTargetType);
 
-    // 3. Build Update Object with matching field names
+    if (discountTargetType === "selected" && allowedUserIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select at least one user for targeted discount",
+      });
+    }
+
+    // 4. Build Update Object with matching field names
     const updateData = {
       name: req.body.name,
       brand: req.body.brand || "",
@@ -179,7 +261,10 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       size: req.body.size || "",
       weight: req.body.weight || "",
       gst: req.body.gst ? Number(req.body.gst) : 0,
-      variantGroup: req.body.variantGroup || null,
+      variantGroup:
+        req.body.variantGroup && req.body.variantGroup.trim() !== ""
+          ? req.body.variantGroup.trim()
+          : null,
       description: req.body.description || "",
 
       // --- MATCHED WITH MONGODB SCHEMA ---
@@ -199,11 +284,23 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       paymentMethods,
     };
 
-    if (finalImages.length > 0) {
+    // Only touch images when the client actually sent image info.
+    // This also allows removing images (previously deleted images could never be saved).
+    const clientSentImageInfo =
+      req.body.existingImages !== undefined || newImageUrls.length > 0;
+
+    if (clientSentImageInfo) {
+      if (finalImages.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "A product must have at least one image",
+        });
+      }
+
       updateData.images = finalImages;
     }
 
-    // 4. Update Document in MongoDB
+    // 5. Update Document in MongoDB
     const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
