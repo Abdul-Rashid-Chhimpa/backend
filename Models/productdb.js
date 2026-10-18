@@ -81,13 +81,13 @@ const productSchema = new mongoose.Schema(
     },
 
     // --- DISCOUNT FOR ALL OTHER USERS (NOT SELECTED) ---
-    defaultDiscountPercent: {
+    otherUsersDiscountPercent: {
       type: Number,
       default: 0,
-      min: [0, "Default discount percentage cannot be negative"],
-      max: [100, "Default discount percentage cannot exceed 100"],
+      min: [0, "Other users discount percentage cannot be negative"],
+      max: [100, "Other users discount percentage cannot exceed 100"],
     },
-    defaultDiscountNote: {
+    otherUsersDiscountNote: {
       type: String,
       default: "",
       trim: true,
