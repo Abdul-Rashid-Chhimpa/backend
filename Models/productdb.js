@@ -80,6 +80,19 @@ const productSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // --- USER TARGETED DISCOUNT (NEWLY ADDED) ---
+    discountTargetType: {
+      type: String,
+      enum: ["all", "selected"],
+      default: "all",
+    },
+    allowedUserIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     // --- BADGE STATUS ---
     isNewProduct: {
       type: Boolean,
