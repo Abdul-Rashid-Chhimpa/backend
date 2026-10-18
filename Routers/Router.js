@@ -21,6 +21,7 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
   try {
     const pricing = parseJSON(req.body.pricing, []);
     const paymentMethods = parseJSON(req.body.paymentMethods, []);
+    const allowedUserIds = parseJSON(req.body.allowedUserIds, []);
 
     // Delivery structure mapping
     let delivery = {};
@@ -41,6 +42,8 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
         ? req.body.variantGroup.trim()
         : null;
 
+    const discountTargetType = req.body.discountTargetType || "all";
+
     const product = await Product.create({
       name: req.body.name,
       brand: req.body.brand || "",
@@ -55,6 +58,10 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
       // --- OFFERS & DISCOUNTS ---
       discountPercent: Number(req.body.discountPercent) || 0,
       discountNote: req.body.discountNote || "",
+
+      // --- USER TARGETED DISCOUNT ---
+      discountTargetType: discountTargetType,
+      allowedUserIds: discountTargetType === "selected" ? allowedUserIds : [],
 
       // --- BADGE TAG ---
       isNewProduct:
@@ -93,7 +100,7 @@ router.get("/", async (req, res) => {
 
     const products = await Product.find(filter)
       .select(
-        "name price images category stock brand material pricing variantGroup description size weight gst delivery paymentMethods discountPercent discountNote isNewProduct"
+        "name price images category stock brand material pricing variantGroup description size weight gst delivery paymentMethods discountPercent discountNote discountTargetType allowedUserIds isNewProduct"
       )
       .sort({ createdAt: -1 })
       .lean()
@@ -117,7 +124,9 @@ router.get("/", async (req, res) => {
 // ======================================
 router.get("/:id", async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).lean();
+    const product = await Product.findById(req.params.id)
+      .populate("allowedUserIds", "name email phone")
+      .lean();
 
     if (!product) {
       return res.status(404).json({
@@ -151,11 +160,14 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
     const delivery = parseJSON(req.body.delivery, {});
     const paymentMethods = parseJSON(req.body.paymentMethods, []);
     const existingImages = parseJSON(req.body.existingImages, []);
+    const allowedUserIds = parseJSON(req.body.allowedUserIds, []);
 
     // 2. Process newly uploaded image file paths from multer
     const newImageUrls = req.files ? req.files.map((file) => file.path) : [];
 
     const finalImages = [...existingImages, ...newImageUrls];
+
+    const discountTargetType = req.body.discountTargetType || "all";
 
     // 3. Build Update Object with matching field names
     const updateData = {
@@ -173,6 +185,9 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       // --- MATCHED WITH MONGODB SCHEMA ---
       discountPercent: Number(req.body.discountPercent || req.body.discountPercentage) || 0,
       discountNote: req.body.discountNote || req.body.offerTag || "",
+      discountTargetType: discountTargetType,
+      allowedUserIds: discountTargetType === "selected" ? allowedUserIds : [],
+
       isNewProduct:
         req.body.isNewProduct === true ||
         req.body.isNewProduct === "true" ||
