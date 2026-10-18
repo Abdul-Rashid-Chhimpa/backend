@@ -67,7 +67,7 @@ const productSchema = new mongoose.Schema(
       max: [100, "GST percentage cannot exceed 100"],
     },
 
-    // --- OFFERS & DISCOUNTS ---
+    // --- SPECIAL / SELECTED USER OFFERS & DISCOUNTS ---
     discountPercent: {
       type: Number,
       default: 0,
@@ -80,7 +80,20 @@ const productSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // --- USER TARGETED DISCOUNT (NEWLY ADDED) ---
+    // --- DISCOUNT FOR ALL OTHER USERS (NOT SELECTED) ---
+    defaultDiscountPercent: {
+      type: Number,
+      default: 0,
+      min: [0, "Default discount percentage cannot be negative"],
+      max: [100, "Default discount percentage cannot exceed 100"],
+    },
+    defaultDiscountNote: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // --- USER TARGETED DISCOUNT ---
     discountTargetType: {
       type: String,
       enum: ["all", "selected"],
