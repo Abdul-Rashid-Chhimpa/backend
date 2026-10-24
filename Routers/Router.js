@@ -29,6 +29,12 @@ const sanitizeUserIds = (list) => {
 // Normalizes the targeting type to only "all" or "selected"
 const normalizeTargetType = (value) => (value === "selected" ? "selected" : "all");
 
+// HSN code: digits only, max 8 characters (e.g. "8203")
+const sanitizeHsnCode = (value) =>
+  String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, 8);
+
 // FIXED: Robust User ID Extraction from Request (Headers, Query & Body)
 const getRequestUserId = (req) => {
   const raw =
@@ -166,6 +172,7 @@ router.post("/add-product", upload.array("images", 10), async (req, res) => {
       size: req.body.size || "",
       weight: req.body.weight || "",
       gst: req.body.gst ? Number(req.body.gst) : 0,
+      hsnCode: sanitizeHsnCode(req.body.hsnCode),
 
       // --- OFFERS & DISCOUNTS FOR SELECTED USERS ---
       discountPercent: Number(req.body.discountPercent) || 0,
@@ -222,7 +229,7 @@ router.get("/", async (req, res) => {
 
     const products = await Product.find(filter)
       .select(
-        "name price images category stock brand material pricing variantGroup description size weight gst delivery paymentMethods discountPercent discountNote discountTargetType allowedUserIds otherUsersDiscountPercent otherUsersDiscountNote isNewProduct"
+        "name price images category stock brand material pricing variantGroup description size weight gst hsnCode delivery paymentMethods discountPercent discountNote discountTargetType allowedUserIds otherUsersDiscountPercent otherUsersDiscountNote isNewProduct"
       )
       .sort({ createdAt: -1 })
       .lean()
@@ -251,7 +258,7 @@ router.get("/admin/all", async (req, res) => {
   try {
     const products = await Product.find({})
       .select(
-        "name price images category stock brand material pricing variantGroup description size weight gst delivery paymentMethods discountPercent discountNote discountTargetType allowedUserIds otherUsersDiscountPercent otherUsersDiscountNote isNewProduct"
+        "name price images category stock brand material pricing variantGroup description size weight gst hsnCode delivery paymentMethods discountPercent discountNote discountTargetType allowedUserIds otherUsersDiscountPercent otherUsersDiscountNote isNewProduct"
       )
       .sort({ createdAt: -1 })
       .lean()
@@ -344,6 +351,7 @@ router.put("/:id", upload.array("images", 10), async (req, res) => {
       size: req.body.size || "",
       weight: req.body.weight || "",
       gst: req.body.gst ? Number(req.body.gst) : 0,
+      hsnCode: sanitizeHsnCode(req.body.hsnCode),
       variantGroup:
         req.body.variantGroup && req.body.variantGroup.trim() !== ""
           ? req.body.variantGroup.trim()
