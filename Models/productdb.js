@@ -60,6 +60,8 @@ const productSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+
+    // --- GST ---
     gst: {
       type: Number,
       default: 0,
@@ -67,7 +69,7 @@ const productSchema = new mongoose.Schema(
       max: [100, "GST percentage cannot exceed 100"],
     },
 
-    // --- HSN CODE (used on the invoice) ---
+    // --- HSN CODE (invoice) ---
     hsnCode: {
       type: String,
       default: "",
@@ -121,6 +123,8 @@ const productSchema = new mongoose.Schema(
     },
 
     // --- DELIVERY SETTINGS ---
+    // Frontend uses: product.delivery.charge
+    // Admin form uses: standardDeliveryCharge / minQtyForFreeDelivery
     delivery: {
       minQtyForFreeDelivery: {
         type: Number,
@@ -132,9 +136,21 @@ const productSchema = new mongoose.Schema(
         default: 0,
         min: [0, "Delivery charge cannot be negative"],
       },
+      // Alias for frontend compatibility (ProductDetails, cart, invoice)
+      charge: {
+        type: Number,
+        default: 0,
+        min: [0, "Delivery charge cannot be negative"],
+      },
       deliveryNote: {
         type: String,
         default: "Free delivery on qualified orders!",
+        trim: true,
+      },
+      // Optional estimated days text
+      time: {
+        type: String,
+        default: "",
         trim: true,
       },
     },
@@ -157,10 +173,12 @@ const productSchema = new mongoose.Schema(
         message: "At least one pricing option is required.",
       },
     },
+
     images: {
       type: [String],
       default: [],
     },
+
     variantGroup: {
       type: String,
       trim: true,
@@ -171,5 +189,23 @@ const productSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Keep charge in sync with standardDeliveryCharge when saving
+productSchema.pre("save", function (next) {
+  if (
+    this.delivery &&
+    (this.delivery.charge === undefined || this.delivery.charge === null)
+  ) {
+    this.delivery.charge = this.delivery.standardDeliveryCharge || 0;
+  }
+  if (
+    this.delivery &&
+    this.isModified("delivery.standardDeliveryCharge") &&
+    !this.isModified("delivery.charge")
+  ) {
+    this.delivery.charge = this.delivery.standardDeliveryCharge || 0;
+  }
+  next();
+});
 
 module.exports = mongoose.model("Product", productSchema);
