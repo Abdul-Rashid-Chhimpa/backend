@@ -67,6 +67,14 @@ const productSchema = new mongoose.Schema(
       max: [100, "GST percentage cannot exceed 100"],
     },
 
+    // --- HSN CODE (used on the invoice) ---
+    hsnCode: {
+      type: String,
+      default: "",
+      trim: true,
+      match: [/^\d{0,8}$/, "HSN code must contain only digits (max 8)"],
+    },
+
     // --- SPECIAL / SELECTED USER OFFERS & DISCOUNTS ---
     discountPercent: {
       type: Number,
