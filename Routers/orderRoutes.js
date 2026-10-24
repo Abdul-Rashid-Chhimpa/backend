@@ -36,8 +36,9 @@ router.post("/create", async (req, res) => {
       customerName,
       items,
       totalAmount,
-      status: "Pending", // Default initial status
+      status: "Pending",
       deletedByUser: false,
+      casesNumber: 0, // default
     });
 
     res.status(201).json({
@@ -61,12 +62,11 @@ router.put("/confirm/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Order status update to "Confirmed" and ensure deletedByUser is false
     const updatedOrder = await Order.findByIdAndUpdate(
       id,
       {
         status: "Confirmed",
-        deletedByUser: false, // Ensures bill is visible on user dashboard
+        deletedByUser: false,
         confirmedAt: new Date(),
       },
       { new: true }
@@ -94,7 +94,48 @@ router.put("/confirm/:id", async (req, res) => {
 });
 
 // ======================================================
-// GET ALL ORDERS FOR ADMIN (Returns ALL records including soft deleted)
+// UPDATE CASES / PARCELS NUMBER (Admin sets this)
+// ======================================================
+router.put("/cases/:id", async (req, res) => {
+  try {
+    const value = Number(req.body.casesNumber);
+
+    if (!Number.isInteger(value) || value < 0 || value > 9999) {
+      return res.status(400).json({
+        success: false,
+        message: "casesNumber must be an integer between 0 and 9999",
+      });
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { casesNumber: value },
+      { new: true, runValidators: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Cases number updated",
+      order,
+    });
+  } catch (error) {
+    console.error("Update cases error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ======================================================
+// GET ALL ORDERS FOR ADMIN
 // ======================================================
 router.get(
   "/",
@@ -118,7 +159,7 @@ router.get("/all", async (req, res) => {
   }
 });
 
-// GET USER SPECIFIC ACTIVE ORDERS (Filters out soft deleted ones)
+// GET USER SPECIFIC ACTIVE ORDERS (soft-deleted hide)
 router.get("/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -146,10 +187,11 @@ router.put("/:id", updateOrderStatus);
 // DELETE LOGIC
 // ======================================================
 
-// 1. USER SOFT DELETE ROUTE (Hides bill from user screen, keeps in Admin database)
+// 1. USER SOFT DELETE (hide from user dashboard)
 router.put("/user-delete/:id", async (req, res) => {
   try {
     const { id } = req.params;
+
     const updatedOrder = await Order.findByIdAndUpdate(
       id,
       { deletedByUser: true },
@@ -172,7 +214,7 @@ router.put("/user-delete/:id", async (req, res) => {
   }
 });
 
-// 2. ADMIN HARD DELETE ROUTE (Removes record completely)
+// 2. ADMIN HARD DELETE
 router.delete("/:id", deleteOrder);
 router.delete("/delete/:id", deleteOrder);
 
