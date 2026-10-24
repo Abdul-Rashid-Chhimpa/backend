@@ -143,7 +143,7 @@ exports.login = async (req, res) => {
       },
       process.env.jwt_secret || process.env.JWT_SECRET,
       {
-        expiresIn: "7d",
+        expiresIn: "1h",
       }
     );
 
