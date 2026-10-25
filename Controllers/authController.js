@@ -62,7 +62,6 @@ exports.register = async (req, res) => {
   }
 };
 
-// ====================== LOGIN (WITH 1-HOUR LOCKOUT) ======================
 // ====================== LOGIN (3 WRONG ATTEMPTS = 1 HOUR LOCKOUT) ======================
 exports.login = async (req, res) => {
   try {
@@ -141,15 +140,19 @@ exports.login = async (req, res) => {
         id: user._id,
         role: user.role,
       },
-      process.env.jwt_secret || process.env.JWT_SECRET,
+      process.env.JWT_SECRET,
       {
         expiresIn: "1h",
       }
     );
 
+    // 1 Hour Expiry calculation for Frontend storage
+    const tokenExpiry = Date.now() + 60 * 60 * 1000;
+
     res.status(200).json({
       success: true,
       token,
+      tokenExpiry, // Frontend par direct localStorage mein save karne ke liye
       user,
     });
   } catch (error) {
@@ -160,7 +163,8 @@ exports.login = async (req, res) => {
     });
   }
 };
-// ====================== FORGOT PASSWORD (LOCKED CHECK ADDED) ======================
+
+// ====================== FORGOT PASSWORD ======================
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -189,10 +193,7 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    // 1. Plain unhashed token (Sent in Email Link)
     const resetToken = crypto.randomBytes(32).toString("hex");
-
-    // 2. Hash generated (Saved in MongoDB)
     const hashedToken = crypto
       .createHash("sha256")
       .update(resetToken)
@@ -202,10 +203,6 @@ exports.forgotPassword = async (req, res) => {
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 mins
 
     await user.save();
-
-    console.log("=== FORGOT PASSWORD DEBUG ===");
-    console.log("Generated Plain Token (Link):", resetToken);
-    console.log("Saved Hash in DB:", hashedToken);
 
     const resetUrl = `https://www.pedwal.in/reset-password/${resetToken}`;
 
@@ -268,21 +265,12 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Clean received token string
     const rawToken = decodeURIComponent(token).trim();
-
-    // Generate SHA-256 Hash
     const hashedToken = crypto
       .createHash("sha256")
       .update(rawToken)
       .digest("hex");
 
-    console.log("------------------ RESET PASSWORD DEBUG ------------------");
-    console.log("1. Raw Token from Params:", rawToken);
-    console.log("2. Generated Hashed Token:", hashedToken);
-    console.log("3. Current System Time (ms):", Date.now());
-
-    // Search user with hash and expiry check
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
       resetPasswordExpire: { $gt: Date.now() },
@@ -294,7 +282,6 @@ exports.resetPassword = async (req, res) => {
       });
 
       if (expiredUser) {
-        console.log("❌ Token matched but it has EXPIRED!");
         return res.status(400).json({
           success: false,
           message:
@@ -302,16 +289,12 @@ exports.resetPassword = async (req, res) => {
         });
       }
 
-      console.log("❌ No user found with this token hash!");
       return res.status(400).json({
         success: false,
         message: "Invalid reset token. Please request a new link.",
       });
     }
 
-    console.log("✅ User matched for reset:", user.email);
-
-    // Save new hashed password, clear reset fields AND clear lockout state
     user.password = await bcrypt.hash(password, 10);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
