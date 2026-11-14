@@ -67,7 +67,9 @@ app.use("/api", categoryRoutes);
 app.get("/", (req, res) => {
   res.json({ success: true, message: "API Running" });
 });
-
+app.get('/health', (req, res) => {
+  res.status(200).send('Server is active');
+});
 // Error handler (multer / cors errors yahan aayenge)
 app.use((err, req, res, next) => {
   console.error(err.message);
