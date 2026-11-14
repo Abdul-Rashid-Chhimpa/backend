@@ -4,8 +4,10 @@ const MAX_BANNERS = 5;
 
 const bannerSchema = new mongoose.Schema(
   {
-    title: { type: String, default: "" },
     image: { type: String, required: true },
+    tagline: { type: String, default: "" },
+    title: { type: String, default: "" },
+    specs: { type: String, default: "" },
     link: { type: String, default: "" },
     isActive: { type: Boolean, default: true },
     order: { type: Number, default: 0 },
@@ -13,7 +15,7 @@ const bannerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Safety net: 5 se zyada banner database me save nahi honge
+// Safety net: 5 se zyada banner save nahi honge
 bannerSchema.pre("save", async function () {
   if (this.isNew) {
     const count = await this.constructor.countDocuments();
@@ -22,7 +24,5 @@ bannerSchema.pre("save", async function () {
     }
   }
 });
-
-bannerSchema.statics.MAX_BANNERS = MAX_BANNERS;
 
 module.exports = mongoose.model("Banner", bannerSchema);
