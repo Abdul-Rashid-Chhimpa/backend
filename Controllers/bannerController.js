@@ -8,6 +8,7 @@ const MAX_BANNERS = 5;
 const removeImage = async (imagePath) => {
   if (!imagePath) return;
 
+  
   try {
     // Delete old local image (legacy support)
     if (imagePath.startsWith("/uploads/")) {
