@@ -29,4 +29,5 @@ const bannerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+
 module.exports = mongoose.model("Banner", bannerSchema);
