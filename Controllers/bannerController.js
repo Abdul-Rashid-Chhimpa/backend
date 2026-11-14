@@ -1,78 +1,79 @@
 const fs = require("fs");
 const path = require("path");
-const Banner = require("../Models/Banner"); // file ka naam exact match hona chahiye
+const Banner = require("../Models/Banner");
 
 const MAX_BANNERS = 5;
 
-// Image file delete karne ka helper
 const removeImageFile = (imagePath) => {
   if (!imagePath || !imagePath.startsWith("/uploads/")) return;
   const fullPath = path.join(__dirname, "..", imagePath);
-  fs.unlink(fullPath, () => {}); // error ignore
+  fs.unlink(fullPath, () => {});
 };
 
-// GET active banners (public) - max 5
+// GET banners (public)
 const getBanners = async (req, res) => {
   try {
     const banners = await Banner.find({ isActive: true })
       .sort({ order: 1, createdAt: -1 })
       .limit(MAX_BANNERS);
-    res.status(200).json(banners);
+    res.status(200).json({ success: true, banners });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// POST create banner (admin) - max 5
+// POST create banner (admin)
 const createBanner = async (req, res) => {
   try {
-    // Multer file pehle hi save kar chuka hota hai, isliye limit hit hone par use delete karte hain
     const count = await Banner.countDocuments();
     if (count >= MAX_BANNERS) {
       if (req.file) removeImageFile(`/uploads/${req.file.filename}`);
       return res.status(400).json({
+        success: false,
         message: `Maximum ${MAX_BANNERS} banners allowed. Pehle koi purana banner delete karein.`,
       });
     }
 
-    const { title, link, isActive, order } = req.body;
+    const { tagline, title, specs, link, order } = req.body;
     const image = req.file ? `/uploads/${req.file.filename}` : req.body.image;
 
-    if (!image) return res.status(400).json({ message: "Image is required" });
+    if (!image) {
+      return res.status(400).json({ success: false, message: "Image is required" });
+    }
 
     const banner = await Banner.create({
-      title,
       image,
+      tagline,
+      title,
+      specs,
       link,
-      isActive: isActive === undefined ? true : isActive === "true" || isActive === true,
       order: Number(order) || 0,
     });
-    res.status(201).json(banner);
+    res.status(201).json({ success: true, banner });
   } catch (err) {
-    // Error aaye to uploaded file hata do
     if (req.file) removeImageFile(`/uploads/${req.file.filename}`);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// PUT update banner (admin)
+// PUT update banner (admin) - text, image, ya dono
 const updateBanner = async (req, res) => {
   try {
     const existing = await Banner.findById(req.params.id);
     if (!existing) {
       if (req.file) removeImageFile(`/uploads/${req.file.filename}`);
-      return res.status(404).json({ message: "Banner not found" });
+      return res.status(404).json({ success: false, message: "Banner not found" });
     }
 
-    const updates = { ...req.body };
-    if (updates.isActive !== undefined) {
-      updates.isActive = updates.isActive === "true" || updates.isActive === true;
-    }
-    if (updates.order !== undefined) updates.order = Number(updates.order) || 0;
-
-    if (req.file) {
-      updates.image = `/uploads/${req.file.filename}`;
-    }
+    const { tagline, title, specs, link, order, isActive } = req.body;
+    const updates = {};
+    if (tagline !== undefined) updates.tagline = tagline;
+    if (title !== undefined) updates.title = title;
+    if (specs !== undefined) updates.specs = specs;
+    if (link !== undefined) updates.link = link;
+    if (order !== undefined) updates.order = Number(order) || 0;
+    if (isActive !== undefined) updates.isActive = isActive === "true" || isActive === true;
+    if (req.file) updates.image = `/uploads/${req.file.filename}`;
 
     const banner = await Banner.findByIdAndUpdate(req.params.id, updates, {
       new: true,
@@ -82,10 +83,10 @@ const updateBanner = async (req, res) => {
     // Nayi image save hone ke baad hi purani delete karein
     if (req.file) removeImageFile(existing.image);
 
-    res.status(200).json(banner);
+    res.status(200).json({ success: true, banner });
   } catch (err) {
     if (req.file) removeImageFile(`/uploads/${req.file.filename}`);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -93,11 +94,13 @@ const updateBanner = async (req, res) => {
 const deleteBanner = async (req, res) => {
   try {
     const banner = await Banner.findByIdAndDelete(req.params.id);
-    if (!banner) return res.status(404).json({ message: "Banner not found" });
+    if (!banner) {
+      return res.status(404).json({ success: false, message: "Banner not found" });
+    }
     removeImageFile(banner.image);
-    res.status(200).json({ message: "Banner deleted" });
+    res.status(200).json({ success: true, message: "Banner deleted" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
