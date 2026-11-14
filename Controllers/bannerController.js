@@ -1,79 +1,50 @@
-const Banner = require("../Models/BannerModel");
+const Banner = require("../Models/Banner");
 
-// Get all banners
+// GET all active banners (public, for home page)
 exports.getBanners = async (req, res) => {
   try {
-    const banners = await Banner.find().sort({ order: 1, createdAt: -1 });
-    res.status(200).json({ success: true, banners });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    const banners = await Banner.find({ isActive: true }).sort({ order: 1, createdAt: -1 });
+    res.status(200).json(banners);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
-// Create Banner
+// POST create banner (admin)
 exports.createBanner = async (req, res) => {
   try {
-    const { image, tagline, title, specs, order } = req.body;
+    const { title, image, link, isActive, order } = req.body;
+    if (!image) return res.status(400).json({ message: "Image is required" });
 
-    const newBanner = await Banner.create({
-      image,
-      tagline,
-      title,
-      specs,
-      order,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "Banner created successfully",
-      banner: newBanner,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    const banner = await Banner.create({ title, image, link, isActive, order });
+    res.status(201).json(banner);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
-// Update Banner
+// PUT update banner (admin)
 exports.updateBanner = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { image, tagline, title, specs, order } = req.body;
-
-    const updatedBanner = await Banner.findByIdAndUpdate(
-      id,
-      { image, tagline, title, specs, order },
-      { new:, runValidators: true }
+    const banner = await Banner.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
     );
-
-    if (!updatedBanner) {
-      return res.status(404).json({ success: false, message: "Banner not found" });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Banner updated successfully",
-      banner: updatedBanner,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    if (!banner) return res.status(404).json({ message: "Banner not found" });
+    res.status(200).json(banner);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
-// Delete Banner
+// DELETE banner (admin)
 exports.deleteBanner = async (req, res) => {
   try {
-    const { id } = req.params;
-    const deletedBanner = await Banner.findByIdAndDelete(id);
-
-    if (!deletedBanner) {
-      return res.status(404).json({ success: false, message: "Banner not found" });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Banner deleted successfully",
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    const banner = await Banner.findByIdAndDelete(req.params.id);
+    if (!banner) return res.status(404).json({ message: "Banner not found" });
+    res.status(200).json({ message: "Banner deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
