@@ -1,4 +1,4 @@
-const Banner = require("../models/BannerModel");
+const Banner = require("../Models/BannerModel");
 
 // Get all banners (Public)
 exports.getBanners = async (req, res) => {
