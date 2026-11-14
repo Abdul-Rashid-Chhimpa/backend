@@ -1,6 +1,6 @@
 const Banner = require("../Models/BannerModel");
 
-// Get all banners (Public)
+// Get all banners
 exports.getBanners = async (req, res) => {
   try {
     const banners = await Banner.find().sort({ order: 1, createdAt: -1 });
@@ -10,7 +10,7 @@ exports.getBanners = async (req, res) => {
   }
 };
 
-// Create Banner (Admin Only)
+// Create Banner
 exports.createBanner = async (req, res) => {
   try {
     const { image, tagline, title, specs, order } = req.body;
@@ -33,7 +33,7 @@ exports.createBanner = async (req, res) => {
   }
 };
 
-// Update Banner (Admin Only)
+// Update Banner
 exports.updateBanner = async (req, res) => {
   try {
     const { id } = req.params;
@@ -42,7 +42,7 @@ exports.updateBanner = async (req, res) => {
     const updatedBanner = await Banner.findByIdAndUpdate(
       id,
       { image, tagline, title, specs, order },
-      { new: true, runValidators: true }
+      { new:, runValidators: true }
     );
 
     if (!updatedBanner) {
@@ -59,7 +59,7 @@ exports.updateBanner = async (req, res) => {
   }
 };
 
-// Delete Banner (Admin Only)
+// Delete Banner
 exports.deleteBanner = async (req, res) => {
   try {
     const { id } = req.params;
