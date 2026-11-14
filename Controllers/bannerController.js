@@ -1,5 +1,5 @@
 
-const cloudinary = require("../config/cloudinary");
+const cloudinary = require("../Config/cloudinary");
 const Banner = require("../Models/Banner");
 
 const MAX_BANNERS = 5;
