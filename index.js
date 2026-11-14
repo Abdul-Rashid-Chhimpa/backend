@@ -2,21 +2,25 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
-
 const fs = require("fs");
 const path = require("path");
 
 dotenv.config();
 
 const app = express();
+
+// Import Routes
 const userRoutes = require("./Routers/userRoutes");
 const settingsRoutes = require("./Routers/settingsRoutes");
 const categoryRoutes = require("./Routers/categoryRoutes");
 const analyticsRoutes = require("./Routers/analyticsRoutes");
 const paymentRoutes = require("./Routers/paymentRoutes");
-const bannerRoutes = require("./Routers/bannerRoutes"); // ✅ 1. Added Banner Route Import
+const bannerRoutes = require("./Routers/bannerRoutes");
+const authRoutes = require("./Routers/authRoutes");
+const productRoutes = require("./Routers/Router");
+const orderRoutes = require("./Routers/orderRoutes");
 
-// Upload Folder
+// Upload Folder Creation
 if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
 }
@@ -33,11 +37,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Routes
-const authRoutes = require("./Routers/authRoutes");
-const productRoutes = require("./Routers/Router");
-const orderRoutes = require("./Routers/orderRoutes");
-
+// Mount Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
@@ -47,13 +47,13 @@ app.use("/api", settingsRoutes);
 app.use("/api", categoryRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/payments", paymentRoutes);
-app.use("/api/banners", bannerRoutes); // ✅ 2. Mounted Banner Route (/api/banners)
+app.use("/api/banners", bannerRoutes);
 
-// MongoDB
+// MongoDB Connection
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected"))
-  .catch((err) => console.log(err));
+  .catch((err) => console.log("MongoDB Connection Error:", err));
 
 // Test Route
 app.get("/", (req, res) => {
@@ -63,7 +63,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// Port
+// Port & Server Startup
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server Running On Port ${PORT}`);
