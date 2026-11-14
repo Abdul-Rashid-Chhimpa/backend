@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const Banner = require("../Models/Banner"); // folder/file ka naam exact match hona chahiye
+const Banner = require("../Models/BannerModel"); // folder/file ka naam exact match hona chahiye
 
 // Purani image file delete karne ka helper
 const removeImageFile = (imagePath) => {
