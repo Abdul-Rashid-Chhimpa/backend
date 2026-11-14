@@ -6,6 +6,7 @@ const router = express.Router();
 const bannerController = require("../Controllers/bannerController");
 const { getBanners, createBanner, updateBanner, deleteBanner } = bannerController;
 
+
 // verifyToken: dono export style support karta hai
 const authModule = require("../Middelware/authMiddleware");
 const verifyToken =
