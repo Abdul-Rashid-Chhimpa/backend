@@ -12,7 +12,7 @@ const {
 } = bannerController;
 
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("../config/cloudinary");
+const cloudinary = require("../Config/cloudinary");
 
 // Authentication middleware
 const authModule = require("../Middelware/authMiddleware");
