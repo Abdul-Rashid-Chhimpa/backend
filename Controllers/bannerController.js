@@ -1,4 +1,4 @@
-const Banner = require("../Models/Banner");
+const Banner = require("../Models/BannerModel");
 
 // GET all active banners (public, for home page)
 exports.getBanners = async (req, res) => {
