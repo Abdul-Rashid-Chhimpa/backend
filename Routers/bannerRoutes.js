@@ -6,7 +6,7 @@ const {
   updateBanner,
   deleteBanner,
 } = require("../Controllers/bannerController");
-const verifyToken = require("../middlewares/authMiddleware"); // Aapka existing auth middleware
+const verifyToken = require("../Middelware/authMiddleware"); // Aapka existing auth middleware
 
 router.get("/", getBanners);
 router.post("/", verifyToken, createBanner);
