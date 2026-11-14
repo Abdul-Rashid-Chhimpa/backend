@@ -8,14 +8,13 @@ const path = require("path");
 
 dotenv.config();
 
-
 const app = express();
 const userRoutes = require("./Routers/userRoutes");
 const settingsRoutes = require("./Routers/settingsRoutes");
 const categoryRoutes = require("./Routers/categoryRoutes");
 const analyticsRoutes = require("./Routers/analyticsRoutes");
-const paymentRoutes = require("./Routers/paymentRoutes"); // 1. Added Payment Route
-
+const paymentRoutes = require("./Routers/paymentRoutes");
+const bannerRoutes = require("./Routers/bannerRoutes"); // ✅ 1. Added Banner Route Import
 
 // Upload Folder
 if (!fs.existsSync("uploads")) {
@@ -47,7 +46,8 @@ app.use("/api/users", userRoutes);
 app.use("/api", settingsRoutes);
 app.use("/api", categoryRoutes);
 app.use("/api/analytics", analyticsRoutes);
-app.use("/api/payments", paymentRoutes); // 2. Mounted Payment Route
+app.use("/api/payments", paymentRoutes);
+app.use("/api/banners", bannerRoutes); // ✅ 2. Mounted Banner Route (/api/banners)
 
 // MongoDB
 mongoose
