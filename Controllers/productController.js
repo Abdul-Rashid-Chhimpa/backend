@@ -16,6 +16,7 @@ exports.createProduct = async (req, res) => {
       frames360,
       specs,
       stock,
+      pricing // Frontend se aane wala pricing array catch karne ke liye
     } = req.body;
 
     if (!name || !price || !category || !images || images.length === 0) {
@@ -25,13 +26,17 @@ exports.createProduct = async (req, res) => {
       });
     }
 
-    // 🔴 Ensure yahan 'pricing' pass nahi ho raha ho
+    // Agar purana schema 'pricing' array maang raha hai, toh use safe fallback de dein
+    const formattedPricing = pricing && pricing.length > 0 
+      ? pricing 
+      : [{ price: Number(price), discountPrice: discountPrice ? Number(discountPrice) : Number(price) }];
+
     const newProduct = await Product.create({
       name,
       tagline,
       description,
-      price,
-      discountPrice: discountPrice || undefined,
+      price: Number(price),
+      discountPrice: discountPrice ? Number(discountPrice) : undefined,
       category,
       material,
       warranty,
@@ -40,7 +45,8 @@ exports.createProduct = async (req, res) => {
       frames360: frames360 || [],
       is360Enabled: frames360 && frames360.length > 0,
       specs: specs || [],
-      stock: stock || 10,
+      stock: stock ? Number(stock) : 10,
+      pricing: formattedPricing // Yeh purane validator ko satisfy kar dega
     });
 
     res.status(201).json({
