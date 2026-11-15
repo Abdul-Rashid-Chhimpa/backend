@@ -20,7 +20,7 @@ const bannerRoutes = require("./Routers/bannerRoutes");
 const authRoutes = require("./Routers/authRoutes");
 const productRoutes = require("./Routers/Router");
 const orderRoutes = require("./Routers/orderRoutes");
-
+const productRoutes = require("./Routers/productRoutes");
 // Upload Folder Creation
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -70,6 +70,8 @@ app.get("/", (req, res) => {
 app.get('/health', (req, res) => {
   res.status(200).send('Server is active');
 });
+
+app.use("/api/products", productRoutes);
 // Error handler (multer / cors errors yahan aayenge)
 app.use((err, req, res, next) => {
   console.error(err.message);
