@@ -11,6 +11,14 @@ const productSchema = new mongoose.Schema(
     material: { type: String, default: "Chrome Vanadium Steel" },
     warranty: { type: String, default: "5 Years Replacement Warranty" },
     
+    // Product Status for Admin Control (Active / Draft / Hidden)
+    status: { 
+      type: String, 
+      enum: ["Active", "Draft", "Hidden"], 
+      default: "Active",
+      index: true 
+    },
+    
     // Main gallery images (Cloudinary URLs)
     images: [{ type: String, required: true }],
     
@@ -30,5 +38,5 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ FIX: Check if model already exists before compiling
+// ✅ Prevent OverwriteModelError during hot reloading
 module.exports = mongoose.models.Product || mongoose.model("Product", productSchema);
