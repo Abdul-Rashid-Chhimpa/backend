@@ -11,7 +11,7 @@ const productSchema = new mongoose.Schema(
     material: { type: String, default: "Chrome Vanadium Steel" },
     warranty: { type: String, default: "5 Years Replacement Warranty" },
     
-    // Product Status for Admin Control (Active / Draft / Hidden)
+    // Status field for Admin Management
     status: { 
       type: String, 
       enum: ["Active", "Draft", "Hidden"], 
@@ -19,14 +19,10 @@ const productSchema = new mongoose.Schema(
       index: true 
     },
     
-    // Main gallery images (Cloudinary URLs)
     images: [{ type: String, required: true }],
-    
-    // 360-Degree Sequence Frames (Cloudinary URLs in order)
     frames360: [{ type: String }],
     is360Enabled: { type: Boolean, default: true },
     
-    // Technical Specs for Product Details
     specs: [
       {
         label: String,
@@ -38,5 +34,4 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ Prevent OverwriteModelError during hot reloading
 module.exports = mongoose.models.Product || mongoose.model("Product", productSchema);
