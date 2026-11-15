@@ -1,7 +1,5 @@
-const Product = require("../Models/Product");
+const Product = require("../models/Product");
 
-
-// Create New Product with 3D, 360° Frames & Status Support
 exports.createProduct = async (req, res) => {
   try {
     const {
@@ -32,7 +30,7 @@ exports.createProduct = async (req, res) => {
       tagline,
       description,
       price,
-      discountPrice,
+      discountPrice: discountPrice || undefined,
       category,
       material,
       warranty,
@@ -46,26 +44,24 @@ exports.createProduct = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Product created successfully with 3D/360° views!",
+      message: "Product created successfully!",
       product: newProduct,
     });
   } catch (error) {
     console.error("Create Product Error:", error);
-    res.status(500).json({ success: false, message: "Server error while saving product." });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get All Active Products (Optimized with .lean() for high speed)
 exports.getProducts = async (req, res) => {
   try {
     const { category, search, status } = req.query;
     let query = {};
 
-    // If admin is requesting, they can filter by status, else default to Active for users
     if (status) {
       query.status = status;
     } else {
-      query.status = "Active";
+      query.status = "Active"; // Public users only see Active products
     }
 
     if (category && category !== "All") {
@@ -85,11 +81,10 @@ exports.getProducts = async (req, res) => {
     });
   } catch (error) {
     console.error("Fetch Products Error:", error);
-    res.status(500).json({ success: false, message: "Server error while fetching products." });
+    res.status(500).json({ success: false, message: "Server error." });
   }
 };
 
-// Get Single Product By ID
 exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id).lean();
