@@ -6,7 +6,7 @@ const {
   getProductById,
 } = require("../Controllers/productController");
 
-// Routes
+// Product Endpoints
 router.post("/create", createProduct);
 router.get("/", getProducts);
 router.get("/:id", getProductById);
