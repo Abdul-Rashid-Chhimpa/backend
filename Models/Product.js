@@ -33,4 +33,6 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// 🔴 NOTE: Yahan koi bhi .pre('save', ...) hook nahi hona chahiye jo 'next' use kare.
+
 module.exports = mongoose.models.Product || mongoose.model("Product", productSchema);
