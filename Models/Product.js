@@ -30,4 +30,5 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Product", productSchema);
+// ✅ FIX: Check if model already exists before compiling
+module.exports = mongoose.models.Product || mongoose.model("Product", productSchema);
