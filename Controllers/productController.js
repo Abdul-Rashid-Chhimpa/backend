@@ -4,49 +4,42 @@ exports.createProduct = async (req, res) => {
   try {
     const {
       name,
-      tagline,
-      description,
-      price,
-      discountPrice,
+      brand,
       category,
       material,
-      warranty,
-      status,
-      images,
-      frames360,
-      specs,
       stock,
-      pricing // Frontend se aane wala pricing array catch karne ke liye
+      description,
+      pricing,
+      images,
+      gst,
+      hsnCode,
+      discountPercent,
+      delivery,
+      paymentMethods,
     } = req.body;
 
-    if (!name || !price || !category || !images || images.length === 0) {
+    // 🔴 Flexible validation: Check mandatory fields based on new schema
+    if (!name || !category || !images || images.length === 0 || !pricing || pricing.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Please provide mandatory fields (name, price, category, images).",
+        message: "Please provide mandatory fields (name, category, images, pricing).",
       });
     }
 
-    // Agar purana schema 'pricing' array maang raha hai, toh use safe fallback de dein
-    const formattedPricing = pricing && pricing.length > 0 
-      ? pricing 
-      : [{ price: Number(price), discountPrice: discountPrice ? Number(discountPrice) : Number(price) }];
-
     const newProduct = await Product.create({
       name,
-      tagline,
-      description,
-      price: Number(price),
-      discountPrice: discountPrice ? Number(discountPrice) : undefined,
+      brand: brand || "Pedwal",
       category,
-      material,
-      warranty,
-      status: status || "Active",
+      material: material || "Chrome Vanadium Steel",
+      stock: stock !== undefined ? Number(stock) : 10,
+      description: description || "",
+      pricing, // [{ quantity: 1, price: ... }]
       images,
-      frames360: frames360 || [],
-      is360Enabled: frames360 && frames360.length > 0,
-      specs: specs || [],
-      stock: stock ? Number(stock) : 10,
-      pricing: formattedPricing // Yeh purane validator ko satisfy kar dega
+      gst: gst ? Number(gst) : 0,
+      hsnCode: hsnCode || "",
+      discountPercent: discountPercent ? Number(discountPercent) : 0,
+      delivery: delivery || { standardDeliveryCharge: 0, charge: 0 },
+      paymentMethods: paymentMethods || { cod: true, phonepe: true, gpay: true },
     });
 
     res.status(201).json({
