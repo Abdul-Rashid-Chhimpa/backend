@@ -1,6 +1,6 @@
-const Product = require("../Models/Product");
+const Product = require("../models/Product");
 
-// Create New Product with 3D & 360° Frames
+// Create New Product with 3D, 360° Frames & Status Support
 exports.createProduct = async (req, res) => {
   try {
     const {
@@ -12,6 +12,7 @@ exports.createProduct = async (req, res) => {
       category,
       material,
       warranty,
+      status,
       images,
       frames360,
       specs,
@@ -34,6 +35,7 @@ exports.createProduct = async (req, res) => {
       category,
       material,
       warranty,
+      status: status || "Active",
       images,
       frames360: frames360 || [],
       is360Enabled: frames360 && frames360.length > 0,
@@ -52,11 +54,18 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-// Get All Products (Optimized with .lean() for high speed)
+// Get All Active Products (Optimized with .lean() for high speed)
 exports.getProducts = async (req, res) => {
   try {
-    const { category, search } = req.query;
+    const { category, search, status } = req.query;
     let query = {};
+
+    // If admin is requesting, they can filter by status, else default to Active for users
+    if (status) {
+      query.status = status;
+    } else {
+      query.status = "Active";
+    }
 
     if (category && category !== "All") {
       query.category = category;
@@ -66,7 +75,6 @@ exports.getProducts = async (req, res) => {
       query.name = { $regex: search, $options: "i" };
     }
 
-    // Using .lean() for blazing-fast read performance
     const products = await Product.find(query).lean().sort({ createdAt: -1 });
 
     res.status(200).json({
