@@ -25,6 +25,7 @@ exports.createProduct = async (req, res) => {
       });
     }
 
+    // 🔴 Ensure yahan 'pricing' pass nahi ho raha ho
     const newProduct = await Product.create({
       name,
       tagline,
