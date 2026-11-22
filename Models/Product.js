@@ -1,38 +1,206 @@
 const mongoose = require("mongoose");
 
-const productSchema = new mongoose.Schema(
+const pricingSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
-    tagline: { type: String, default: "Industrial Grade Precision Tool" },
-    description: { type: String, required: true },
-    price: { type: Number, required: true },
-    discountPrice: { type: Number },
-    category: { type: String, required: true, index: true },
-    material: { type: String, default: "Chrome Vanadium Steel" },
-    warranty: { type: String, default: "5 Years Replacement Warranty" },
-    
-    status: { 
-      type: String, 
-      enum: ["Active", "Draft", "Hidden"], 
-      default: "Active",
-      index: true 
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
     },
-    
-    images: [{ type: String, required: true }],
-    frames360: [{ type: String }],
-    is360Enabled: { type: Boolean, default: true },
-    
-    specs: [
-      {
-        label: String,
-        value: String,
-      },
-    ],
-    stock: { type: Number, default: 10 },
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
   },
-  { timestamps: true }
+  { _id: false }
 );
 
-// 🔴 NOTE: Yahan koi bhi .pre('save', ...) hook nahi hona chahiye jo 'next' use kare.
+const productSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    brand: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    category: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
+    },
+    material: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    stock: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: [0, "Stock cannot be negative"],
+    },
+    description: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    size: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    weight: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // --- GST ---
+    gst: {
+      type: Number,
+      default: 0,
+      min: [0, "GST cannot be negative"],
+      max: [100, "GST percentage cannot exceed 100"],
+    },
+
+    // --- HSN CODE (invoice) ---
+    hsnCode: {
+      type: String,
+      default: "",
+      trim: true,
+      match: [/^\d{0,8}$/, "HSN code must contain only digits (max 8)"],
+    },
+
+    // --- SPECIAL / SELECTED USER OFFERS & DISCOUNTS ---
+    discountPercent: {
+      type: Number,
+      default: 0,
+      min: [0, "Discount percentage cannot be negative"],
+      max: [100, "Discount percentage cannot exceed 100"],
+    },
+    discountNote: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // --- DISCOUNT FOR ALL OTHER USERS (NOT SELECTED) ---
+    otherUsersDiscountPercent: {
+      type: Number,
+      default: 0,
+      min: [0, "Other users discount percentage cannot be negative"],
+      max: [100, "Other users discount percentage cannot exceed 100"],
+    },
+    otherUsersDiscountNote: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // --- USER TARGETED DISCOUNT ---
+    discountTargetType: {
+      type: String,
+      enum: ["all", "selected"],
+      default: "all",
+    },
+    allowedUserIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    // --- BADGE STATUS ---
+    isNewProduct: {
+      type: Boolean,
+      default: true,
+    },
+
+    // --- DELIVERY SETTINGS ---
+    delivery: {
+      minQtyForFreeDelivery: {
+        type: Number,
+        default: 0,
+        min: [0, "Minimum quantity cannot be negative"],
+      },
+      standardDeliveryCharge: {
+        type: Number,
+        default: 0,
+        min: [0, "Delivery charge cannot be negative"],
+      },
+      charge: {
+        type: Number,
+        default: 0,
+        min: [0, "Delivery charge cannot be negative"],
+      },
+      deliveryNote: {
+        type: String,
+        default: "Free delivery on qualified orders!",
+        trim: true,
+      },
+      time: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+    },
+
+    // --- PAYMENT METHODS ---
+    paymentMethods: {
+      cod: { type: Boolean, default: true },
+      phonepe: { type: Boolean, default: true },
+      gpay: { type: Boolean, default: true },
+      paytm: { type: Boolean, default: true },
+      card: { type: Boolean, default: true },
+      netbanking: { type: Boolean, default: true },
+    },
+
+    pricing: {
+      type: [pricingSchema],
+      required: true,
+      validate: {
+        validator: (value) => Array.isArray(value) && value.length > 0,
+        message: "At least one pricing option is required.",
+      },
+    },
+
+    images: {
+      type: [String],
+      default: [],
+    },
+
+    variantGroup: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// Async pre-save hook (avoids `next is not a function` in Mongoose/Kareem)
+productSchema.pre("save", async function () {
+  if (
+    this.delivery &&
+    (this.delivery.charge === undefined || this.delivery.charge === null)
+  ) {
+    this.delivery.charge = this.delivery.standardDeliveryCharge || 0;
+  }
+  if (
+    this.delivery &&
+    this.isModified("delivery.standardDeliveryCharge") &&
+    !this.isModified("delivery.charge")
+  ) {
+    this.delivery.charge = this.delivery.standardDeliveryCharge || 0;
+  }
+});
 
 module.exports = mongoose.models.Product || mongoose.model("Product", productSchema);
