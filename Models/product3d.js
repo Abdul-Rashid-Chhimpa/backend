@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 
-
 const pricingTierSchema = new mongoose.Schema(
   {
     quantity: {
@@ -62,6 +61,16 @@ const product3DSchema = new mongoose.Schema(
       type: Number,
       required: [true, "MRP price is required"],
       min: [0, "Price cannot be negative"],
+    },
+    mrp: {
+      type: Number,
+      min: [0, "MRP cannot be negative"],
+      default: null,
+    },
+    sellingPrice: {
+      type: Number,
+      min: [0, "Selling price cannot be negative"],
+      default: null,
     },
     discountPrice: {
       type: Number,
@@ -136,18 +145,51 @@ const product3DSchema = new mongoose.Schema(
   }
 );
 
+// Populate `price` before `required` validation runs if sent via alias/tier fields
+product3DSchema.pre("validate", async function () {
+  const firstTierPrice =
+    Array.isArray(this.pricing) && this.pricing.length > 0
+      ? Number(this.pricing[0]?.price)
+      : NaN;
+
+  if (this.price === undefined || this.price === null || Number.isNaN(this.price)) {
+    const candidates = [
+      this.mrp,
+      this.discountPrice,
+      this.sellingPrice,
+      firstTierPrice,
+    ];
+
+    for (const candidate of candidates) {
+      const num = Number(candidate);
+      if (candidate !== undefined && candidate !== null && candidate !== "" && !Number.isNaN(num) && num >= 0) {
+        this.price = num;
+        break;
+      }
+    }
+  }
+});
+
 // Async pre-save hook (no `next` callback for Mongoose 9 compatibility)
 product3DSchema.pre("save", async function () {
   const mrp = Number(this.price) || 0;
+  this.price = mrp;
 
-  if (this.discountPrice === null || this.discountPrice === undefined) {
-    this.discountPrice = mrp;
+  if (this.mrp === null || this.mrp === undefined || Number.isNaN(Number(this.mrp))) {
+    this.mrp = mrp;
   }
 
-  const effectivePrice =
-    typeof this.discountPrice === "number" && !Number.isNaN(this.discountPrice)
-      ? this.discountPrice
+  const rawSelling =
+    this.discountPrice !== null && this.discountPrice !== undefined && this.discountPrice !== ""
+      ? Number(this.discountPrice)
+      : this.sellingPrice !== null && this.sellingPrice !== undefined && this.sellingPrice !== ""
+      ? Number(this.sellingPrice)
       : mrp;
+
+  const effectivePrice = !Number.isNaN(rawSelling) ? rawSelling : mrp;
+
+  this.discountPrice = effectivePrice;
+  this.sellingPrice = effectivePrice;
 
   if (mrp > 0 && effectivePrice < mrp) {
     this.discountPercent = Math.max(
