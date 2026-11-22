@@ -16,12 +16,30 @@ const pricingSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const specSchema = new mongoose.Schema(
+  {
+    key: { type: String, trim: true, default: "" },
+    value: { type: String, trim: true, default: "" },
+  },
+  { _id: false }
+);
+
 const productSchema = new mongoose.Schema(
   {
     name: {
       type: String,
       required: true,
       trim: true,
+    },
+    tagline: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    status: {
+      type: String,
+      enum: ["active", "draft", "inactive"],
+      default: "active",
     },
     brand: {
       type: String,
@@ -59,6 +77,44 @@ const productSchema = new mongoose.Schema(
       type: String,
       default: "",
       trim: true,
+    },
+
+    // --- PRICING (supports MRP, Selling Price, top-level price & tiered pricing) ---
+    mrp: {
+      type: Number,
+      min: [0, "MRP cannot be negative"],
+      default: null,
+    },
+    sellingPrice: {
+      type: Number,
+      min: [0, "Selling price cannot be negative"],
+      default: null,
+    },
+    price: {
+      type: Number,
+      min: [0, "Price cannot be negative"],
+      default: null,
+    },
+    pricing: {
+      type: [pricingSchema],
+      default: [],
+      validate: {
+        validator: function (value) {
+          const hasPricingArray = Array.isArray(value) && value.length > 0;
+          const hasDirectPrice =
+            typeof this.sellingPrice === "number" ||
+            typeof this.price === "number" ||
+            typeof this.mrp === "number";
+          return hasPricingArray || hasDirectPrice;
+        },
+        message: "At least one price or pricing option is required.",
+      },
+    },
+
+    // --- SPECS ---
+    specs: {
+      type: [specSchema],
+      default: [],
     },
 
     // --- GST ---
@@ -161,16 +217,12 @@ const productSchema = new mongoose.Schema(
       netbanking: { type: Boolean, default: true },
     },
 
-    pricing: {
-      type: [pricingSchema],
-      required: true,
-      validate: {
-        validator: (value) => Array.isArray(value) && value.length > 0,
-        message: "At least one pricing option is required.",
-      },
-    },
-
+    // --- IMAGES & 360° ROTATION FRAMES ---
     images: {
+      type: [String],
+      default: [],
+    },
+    rotationFrames: {
       type: [String],
       default: [],
     },
@@ -186,8 +238,44 @@ const productSchema = new mongoose.Schema(
   }
 );
 
-// Async pre-save hook (avoids `next is not a function` in Mongoose/Kareem)
+// Keep price, sellingPrice, pricing[0].price, and delivery.charge in sync
 productSchema.pre("save", async function () {
+  // 1. Resolve effective price from sellingPrice, price, mrp, or pricing[0]
+  const firstTierPrice =
+    Array.isArray(this.pricing) && this.pricing.length > 0
+      ? this.pricing[0].price
+      : null;
+
+  const effectivePrice =
+    typeof this.sellingPrice === "number" && !Number.isNaN(this.sellingPrice)
+      ? this.sellingPrice
+      : typeof this.price === "number" && !Number.isNaN(this.price)
+      ? this.price
+      : typeof firstTierPrice === "number" && !Number.isNaN(firstTierPrice)
+      ? firstTierPrice
+      : typeof this.mrp === "number" && !Number.isNaN(this.mrp)
+      ? this.mrp
+      : 0;
+
+  this.price = effectivePrice;
+  if (this.sellingPrice === null || this.sellingPrice === undefined) {
+    this.sellingPrice = effectivePrice;
+  }
+  if (this.mrp === null || this.mrp === undefined) {
+    this.mrp = effectivePrice;
+  }
+
+  // Ensure pricing array always has at least one entry so older code reading pricing[0].price works
+  if (!Array.isArray(this.pricing) || this.pricing.length === 0) {
+    this.pricing = [{ quantity: 1, price: effectivePrice }];
+  } else if (
+    this.isModified("sellingPrice") ||
+    this.isModified("price")
+  ) {
+    this.pricing[0].price = effectivePrice;
+  }
+
+  // 2. Sync delivery charge
   if (
     this.delivery &&
     (this.delivery.charge === undefined || this.delivery.charge === null)
@@ -203,4 +291,5 @@ productSchema.pre("save", async function () {
   }
 });
 
-module.exports = mongoose.models.Product || mongoose.model("Product", productSchema);
+module.exports =
+  mongoose.models.Product || mongoose.model("Product", productSchema);
