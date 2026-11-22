@@ -135,7 +135,7 @@ const product3DSchema = new mongoose.Schema(
   }
 );
 
-// Mongoose 9-compatible pre-save hook (no `next` parameter)
+// Async pre-save hook (no `next` callback for Mongoose 9 compatibility)
 product3DSchema.pre("save", async function () {
   const mrp = Number(this.price) || 0;
 
@@ -165,6 +165,4 @@ product3DSchema.pre("save", async function () {
 });
 
 module.exports =
-  mongoose.models.Product3D ||
-  mongoose.models.Product ||
-  mongoose.model("Product3D", product3DSchema);
+  mongoose.models.Product3D || mongoose.model("Product3D", product3DSchema);
