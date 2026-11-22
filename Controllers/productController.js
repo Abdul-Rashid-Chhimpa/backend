@@ -62,3 +62,41 @@ exports.createProduct = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+exports.getProducts = async (req, res) => {
+  try {
+    const { category, search } = req.query;
+    const query = {};
+
+    if (category && category !== "All") {
+      query.category = category;
+    }
+
+    if (search) {
+      query.name = { $regex: search, $options: "i" };
+    }
+
+    const products = await Product.find(query).lean().sort({ createdAt: -1 });
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      products,
+    });
+  } catch (error) {
+    console.error("Fetch Products Error:", error);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
+
+exports.getProductById = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id).lean();
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found." });
+    }
+    res.status(200).json({ success: true, product });
+  } catch (error) {
+    console.error("Fetch Single Product Error:", error);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+};
