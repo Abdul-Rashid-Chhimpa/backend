@@ -205,7 +205,7 @@ productSchema.pre("save", function (next) {
   ) {
     this.delivery.charge = this.delivery.standardDeliveryCharge || 0;
   }
-  next();
+  
 });
 
 module.exports = mongoose.model("Product", productSchema);
