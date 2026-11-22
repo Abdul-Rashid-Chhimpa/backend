@@ -2,64 +2,56 @@ const Product = require("../Models/product3d");
 
 exports.createProduct = async (req, res) => {
   try {
-    const {
-      name,
-      brand,
-      category,
-      material,
-      stock,
-      description,
-      size,
-      weight,
-      gst,
-      hsnCode,
-      discountPercent,
-      delivery,
-      paymentMethods,
-      pricing,
-      images,
-      variantGroup,
-    } = req.body;
+    const body = { ...req.body };
 
-    if (!name || !category || !images || images.length === 0 || !pricing || pricing.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide mandatory fields (name, category, images, pricing).",
-      });
+    const firstTierPrice =
+      Array.isArray(body.pricing) && body.pricing.length > 0
+        ? Number(body.pricing[0]?.price)
+        : NaN;
+
+    const candidates = [
+      body.price,
+      body.mrp,
+      body.discountPrice,
+      body.sellingPrice,
+      firstTierPrice,
+    ];
+
+    let resolvedPrice;
+    for (const val of candidates) {
+      if (val !== undefined && val !== null && val !== "") {
+        const num = Number(val);
+        if (!Number.isNaN(num) && num >= 0) {
+          resolvedPrice = num;
+          break;
+        }
+      }
     }
 
-    const safeDiscountPercent = Math.max(
-      0,
-      Math.min(100, Number(discountPercent) || 0)
-    );
+    if (resolvedPrice !== undefined) {
+      body.price = resolvedPrice;
+    }
 
-    const newProduct = await Product.create({
-      name,
-      brand: brand || "Pedwal",
-      category,
-      material: material || "",
-      stock: stock !== undefined ? Number(stock) : 0,
-      description: description || "",
-      size: size || "",
-      weight: weight || "",
-      gst: gst ? Math.max(0, Math.min(100, Number(gst))) : 0,
-      hsnCode: hsnCode || "",
-      discountPercent: safeDiscountPercent,
-      delivery: delivery || { standardDeliveryCharge: 0, charge: 0 },
-      paymentMethods: paymentMethods || { cod: true, phonepe: true, gpay: true },
-      pricing,
-      images,
-      variantGroup: variantGroup || null,
-    });
+    if (body.discountPrice === undefined || body.discountPrice === null || body.discountPrice === "") {
+      body.discountPrice = resolvedPrice ?? 0;
+    } else {
+      body.discountPrice = Number(body.discountPrice);
+    }
 
-    res.status(201).json({
-      success: true,
-      message: "Product created successfully!",
-      product: newProduct,
-    });
+    if (!Array.isArray(body.pricing) || body.pricing.length === 0) {
+      if (resolvedPrice !== undefined) {
+        body.pricing = [{ quantity: 1, price: body.discountPrice || resolvedPrice }];
+      }
+    }
+
+    const product = await Product3D.create(body);
+    return res.status(201).json({ success: true, product });
   } catch (error) {
     console.error("Create Product Error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to create product",
+    });
   }
 };
 
