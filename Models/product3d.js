@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+
 const pricingTierSchema = new mongoose.Schema(
   {
     quantity: {
